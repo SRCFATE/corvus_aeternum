@@ -1,14 +1,10 @@
-enum SignupRole { collector, crow }
+// Todos los usuarios de Corvus Aeternum son Cuervos (artistas).
+// El enum se conserva para no romper firmas existentes, pero solo
+// expone un único valor.
+enum SignupRole { crow }
 
 extension SignupRoleX on SignupRole {
-  String get code => name; // 'collector' | 'crow'
+  String get code => name; // 'crow'
 
-  String get label {
-    switch (this) {
-      case SignupRole.collector:
-        return 'Coleccionista';
-      case SignupRole.crow:
-        return 'Cuervo';
-    }
-  }
+  String get label => 'Cuervo';
 }

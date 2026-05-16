@@ -27,7 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final bioCtrl = TextEditingController();
 
   String country = 'México';
-  String role = 'collector'; // solo lectura aquí
+  String role = 'crow'; // solo lectura aquí
   String? conspiracyId;
 
   List<Map<String, dynamic>> conspiracies = [];
@@ -73,7 +73,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (p != null) {
         displayNameCtrl.text = (p['display_name'] ?? '') as String;
         bioCtrl.text = (p['bio'] ?? '') as String;
-        role = (p['role'] ?? 'collector') as String;
+        role = (p['role'] ?? 'crow') as String;
         country = (p['country'] ?? 'México') as String;
 
         // antes: constellation_id
@@ -142,14 +142,16 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String _roleLabel(String r) {
+    // Todos los perfiles son Cuervos. Conservamos el switch por si en
+    // la base existen valores antiguos (e.g. 'collector') que se
+    // muestran ahora bajo la identidad Cuervo.
     switch (r) {
       case 'crow':
       case 'artist':
-        return 'Cuervo (Artista)';
       case 'collector':
-        return 'Coleccionista';
+        return 'Cuervo (Artista)';
       default:
-        return r;
+        return 'Cuervo (Artista)';
     }
   }
 
