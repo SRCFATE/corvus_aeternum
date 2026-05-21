@@ -20,12 +20,6 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   String? _lastAppliedConspiracyKey;
 
-  SignupRole _roleFromUserMeta(User user) {
-    final raw = (user.userMetadata?['signup_role'] as String?)?.trim().toLowerCase();
-    if (raw == 'crow' || raw == 'artist') return SignupRole.crow;
-    return SignupRole.collector;
-  }
-
   void _postFrame(VoidCallback fn) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -143,10 +137,9 @@ class _AuthGateState extends State<AuthGate> {
 
             final profile = profileSnap.data;
 
-            // ✅ No hay perfil -> crear perfil con role desde user_metadata
+            // ✅ No hay perfil -> crear perfil como Cuervo (rol único)
             if (profile == null) {
-              final role = _roleFromUserMeta(session.user);
-              return CreateProfilePage(role: role);
+              return const CreateProfilePage(role: SignupRole.crow);
             }
 
             // ✅ Aplicar skin de conspiración sin bloquear Home

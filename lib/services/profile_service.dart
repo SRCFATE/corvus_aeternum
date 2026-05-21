@@ -25,7 +25,7 @@ class ProfileService {
   Future<void> createProfile({
     required String displayName,
     required String username,
-    required String role, // 'collector' | 'crow'
+    required String role, // siempre 'crow'
     required String country,
     String? bio,
     String? conspiracyId,

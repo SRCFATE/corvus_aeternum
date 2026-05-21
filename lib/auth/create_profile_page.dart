@@ -64,8 +64,6 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     'Reino Unido',
   ];
 
-  bool get isCrow => widget.role == SignupRole.crow;
-
   @override
   void initState() {
     super.initState();
@@ -73,11 +71,8 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
 
     displayNameCtrl.addListener(_onDisplayNameChanged);
 
-    if (isCrow) {
-      _loadConspiracies();
-    } else {
-      conspiracyId = null;
-    }
+    // Todos los usuarios son Cuervos: siempre cargamos conspiraciones.
+    _loadConspiracies();
   }
 
   @override
@@ -289,15 +284,13 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
         avatarUrl = await service.uploadAvatar(avatarFile!);
       }
 
-      final profileType = isCrow ? 'crow' : 'collector';
-
       await service.createProfile(
         displayName: displayNameCtrl.text.trim(),
         username: username, // SIN @ (recomendado)
         bio: null,
-        role: profileType,
+        role: 'crow',
         country: country,
-        conspiracyId: isCrow ? conspiracyId : null, // opcional si no cargó
+        conspiracyId: conspiracyId, // opcional si no cargó
         avatarUrl: avatarUrl,
       );
 
@@ -389,8 +382,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
               ),
               const SizedBox(height: 20),
 
-              if (isCrow) ...[
-                const Text(
+              const Text(
                   'Conspiración inicial',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
                 ),
@@ -433,8 +425,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                       filled: true,
                     ),
                   ),
-                const SizedBox(height: 20),
-              ],
+              const SizedBox(height: 20),
 
               // Hint inferior (solo cuando intentó guardar)
               if (footerHint != null) ...[

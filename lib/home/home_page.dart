@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../auth/login_page.dart';
-import '../auth/role_select_page.dart';
+import '../auth/register_page.dart';
+import '../auth/signup_role.dart';
 import '../profile/profile_page.dart';
 import '../admin/admin_panel_page.dart';
 
@@ -209,7 +210,7 @@ class GuestBanner extends StatelessWidget {
             compact: true,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const RoleSelectPage()),
+              MaterialPageRoute(builder: (_) => const RegisterPage(role: SignupRole.crow)),
             ),
           ),
         ],
@@ -317,7 +318,7 @@ class HeroCopy extends StatelessWidget {
                 kind: CorvusButtonKind.ghost,
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const RoleSelectPage()),
+                  MaterialPageRoute(builder: (_) => const RegisterPage(role: SignupRole.crow)),
                 ),
               ),
           ],
@@ -984,7 +985,7 @@ class Footer extends StatelessWidget {
           Text('Corvus Aeternum', style: TextStyle(fontWeight: FontWeight.w900, color: scheme.onSurface)),
           const SizedBox(height: 6),
           Text(
-            'Curaduría de arte digital. Archivo vivo para coleccionistas y autores.',
+            'Curaduría de arte digital. Archivo vivo de Cuervos: artistas, autores y guardianes de obra.',
             style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.72), height: 1.35),
           ),
           const SizedBox(height: 14),
@@ -1307,7 +1308,7 @@ class _TopBarState extends State<TopBar> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RoleSelectPage())),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterPage(role: SignupRole.crow))),
                   child: const Text('Unirse'),
                 ),
               ] else ...[

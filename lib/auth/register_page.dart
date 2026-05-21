@@ -32,8 +32,6 @@ class _RegisterPageState extends State<RegisterPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  String _roleLabel(SignupRole r) => r == SignupRole.crow ? 'Cuervo' : 'Coleccionista';
-
   Future<void> _signup() async {
     final email = emailCtrl.text.trim();
     final pass = passCtrl.text;
@@ -59,7 +57,7 @@ class _RegisterPageState extends State<RegisterPage> {
         password: pass,
         data: {
           // ✅ guardado en auth.users.user_metadata
-          'signup_role': widget.role.name, // 'collector' | 'crow'
+          'signup_role': widget.role.name, // siempre 'crow'
         },
       );
 
@@ -89,10 +87,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final roleLabel = _roleLabel(widget.role);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear cuenta')),
+      appBar: AppBar(title: const Text('Únete como Cuervo')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -100,10 +96,14 @@ class _RegisterPageState extends State<RegisterPage> {
             padding: const EdgeInsets.all(18),
             children: [
               Text(
-                'Rol seleccionado: $roleLabel',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.75)),
+                'Corvus Aeternum es un santuario para artistas.\n'
+                'Al unirte despiertas como Cuervo: publicas, archivas y convocas obra.',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  height: 1.35,
+                ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               TextField(
                 controller: emailCtrl,

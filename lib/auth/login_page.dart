@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'role_select_page.dart';
+import 'register_page.dart';
+import 'signup_role.dart';
 
 
 class LoginPage extends StatefulWidget {
@@ -144,7 +145,11 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const RoleSelectPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterPage(
+                              role: SignupRole.crow,
+                            ),
+                          ),
                         );
                       },
                       child: const Text('Unirse'),
