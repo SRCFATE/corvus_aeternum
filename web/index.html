@@ -18,18 +18,28 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
+  >
+  <meta
+    name="description"
+    content="Corvus Aeternum, el archivo vivo de artistas, obra y legado."
+  >
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="corvus_aeternum">
+  <meta name="apple-mobile-web-app-title" content="Corvus Aeternum">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>corvus_aeternum</title>
+  <title>Corvus Aeternum</title>
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
@@ -41,6 +51,41 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Corvus se actualiza con frecuencia durante su desarrollo. El arranque
+    // limpia el antiguo cache PWA antes de cargar la compilacion vigente.
+    (async () => {
+      const cacheVersion = 'corvus-web-20260822-private-author-forums';
+      const wasControlled =
+        'serviceWorker' in navigator && navigator.serviceWorker.controller;
+
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((entry) => entry.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+
+      // Un worker desregistrado conserva el control de la pagina actual.
+      // Una unica recarga entrega el control al paquete vigente.
+      if (
+        wasControlled &&
+        sessionStorage.getItem('corvus-cache-reset') !== cacheVersion
+      ) {
+        sessionStorage.setItem('corvus-cache-reset', cacheVersion);
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('_corvus_build', cacheVersion);
+        window.location.replace(currentUrl.toString());
+        return;
+      }
+
+      const bootstrap = document.createElement('script');
+      bootstrap.src = `flutter_bootstrap.js?v=${Date.now()}`;
+      bootstrap.async = true;
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
 </body>
 </html>
