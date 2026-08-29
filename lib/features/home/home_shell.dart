@@ -603,36 +603,57 @@ class _SpacesMenuButton extends StatelessWidget {
     this.compact = true,
   });
 
+  /// Abre el panel anclado bajo el botón.
+  ///
+  /// No se usa PopupMenuButton a propósito: su menú está limitado a 280 px de
+  /// ancho (`_kMenuMaxWidth`) y mide el contenido por ancho intrínseco, lo que
+  /// colapsaba este panel de tres columnas hasta desbordar cada fila.
+  Future<void> _open(BuildContext context, Color accent) async {
+    final button = context.findRenderObject() as RenderBox?;
+    final overlay =
+        Navigator.of(context).overlay?.context.findRenderObject() as RenderBox?;
+    if (button == null || overlay == null) return;
+
+    final anchor = button.localToGlobal(
+      button.size.bottomLeft(const Offset(0, 10)),
+      ancestor: overlay,
+    );
+
+    final selection = await showGeneralDialog<int>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Más',
+      barrierColor: Colors.black.withValues(alpha: 0.28),
+      transitionDuration: CorvusMotion.medium,
+      pageBuilder: (dialogContext, animation, _) {
+        return _MoreMenuOverlay(
+          anchor: anchor,
+          overlaySize: overlay.size,
+          accent: accent,
+          selectedIndex: selectedIndex,
+          animation: animation,
+          onSelect: (i) => Navigator.of(dialogContext).pop(i),
+        );
+      },
+    );
+
+    if (selection != null) onTabSelected(selection);
+  }
+
   @override
   Widget build(BuildContext context) {
     final accent = context.watch<ConspirationProvider>().accent;
     final selected = _moreIndices.contains(selectedIndex);
 
-    return PopupMenuButton<int>(
-      tooltip: 'Más',
-      onSelected: onTabSelected,
-      color: Colors.transparent,
-      elevation: 0,
-      position: PopupMenuPosition.under,
-      offset: const Offset(0, 10),
-      padding: EdgeInsets.zero,
-      menuPadding: EdgeInsets.zero,
-      shape: const RoundedRectangleBorder(),
-      itemBuilder: (_) => [
-        PopupMenuItem<int>(
-          enabled: false,
-          padding: EdgeInsets.zero,
-          child: _MoreMenuPanel(
-            accent: accent,
-            selectedIndex: selectedIndex,
-            onSelect: (i) {
-              Navigator.of(context).pop();
-              onTabSelected(i);
-            },
-          ),
-        ),
-      ],
-      child: compact
+    return Semantics(
+      button: true,
+      label: 'Más',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _open(context, accent),
+          behavior: HitTestBehavior.opaque,
+          child: compact
           ? AnimatedContainer(
               duration: CorvusMotion.fast,
               width: 38,
@@ -654,12 +675,76 @@ class _SpacesMenuButton extends StatelessWidget {
                 color: selected ? accent : AppColors.textSecondary,
               ),
             )
-          : _HoverNavLink(
-              label: 'Más',
-              selected: selected,
-              trailing: Icons.expand_more_rounded,
-              onTap: null,
+              : _HoverNavLink(
+                  label: 'Más',
+                  selected: selected,
+                  trailing: Icons.expand_more_rounded,
+                  onTap: null,
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Capa que posiciona el panel bajo el botón y lo anima al aparecer.
+class _MoreMenuOverlay extends StatelessWidget {
+  final Offset anchor;
+  final Size overlaySize;
+  final Color accent;
+  final int selectedIndex;
+  final Animation<double> animation;
+  final ValueChanged<int> onSelect;
+
+  const _MoreMenuOverlay({
+    required this.anchor,
+    required this.overlaySize,
+    required this.accent,
+    required this.selectedIndex,
+    required this.animation,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const margin = 16.0;
+    final maxWidth = overlaySize.width - margin * 2;
+    final panelWidth = (overlaySize.width >= 980 ? 720.0 : 320.0)
+        .clamp(240.0, maxWidth > 0 ? maxWidth : 240.0);
+
+    // Se ancla al botón pero nunca sale de la pantalla por el borde derecho.
+    final left =
+        (anchor.dx - 12).clamp(margin, (overlaySize.width - panelWidth - margin)
+            .clamp(margin, double.infinity));
+
+    final curved =
+        CurvedAnimation(parent: animation, curve: CorvusMotion.entrance);
+
+    return Stack(
+      children: [
+        Positioned(
+          left: left,
+          top: anchor.dy,
+          width: panelWidth,
+          child: FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.03),
+                end: Offset.zero,
+              ).animate(curved),
+              child: Material(
+                type: MaterialType.transparency,
+                child: _MoreMenuPanel(
+                  accent: accent,
+                  selectedIndex: selectedIndex,
+                  onSelect: onSelect,
+                ),
+              ),
             ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -679,19 +764,16 @@ class _MoreMenuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final wide = screenWidth >= 980;
-    // El menú nunca debe exceder la pantalla: en ventanas justas se estrecha
-    // en vez de desbordar sus columnas.
-    final panelWidth =
-        wide ? (screenWidth - 64).clamp(560.0, 780.0) : 320.0;
+    // El ancho lo impone el overlay que lo posiciona; aquí solo se decide si
+    // hay sitio para las tres columnas o hay que apilarlas.
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 560;
 
-    return ClipRRect(
+      return ClipRRect(
       borderRadius: BorderRadius.circular(CorvusRadius.xl),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
         child: Container(
-          width: panelWidth,
           decoration: BoxDecoration(
             color: AppColors.card.withValues(alpha: 0.94),
             borderRadius: BorderRadius.circular(CorvusRadius.xl),
@@ -748,7 +830,8 @@ class _MoreMenuPanel extends StatelessWidget {
           ),
         ),
       ),
-    );
+      );
+    });
   }
 
   Widget _buildGroup(_MoreGroup group) {

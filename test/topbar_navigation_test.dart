@@ -2,6 +2,7 @@ import 'package:corvus_aeternum/core/router/navigation_coordinator.dart';
 import 'package:corvus_aeternum/features/home/home_shell.dart';
 import 'package:corvus_aeternum/providers/auth_provider.dart';
 import 'package:corvus_aeternum/providers/conspiration_provider.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -93,6 +94,57 @@ void main() {
     expect(find.text('Foros de autores'), findsOneWidget);
     expect(find.text('Libro de las Conspiraciones'), findsOneWidget);
     expect(find.text('Glosario'), findsOneWidget);
+
+    // En escritorio ancho el panel despliega las tres columnas de verdad.
+    final tileRow = find
+        .ancestor(of: find.text('Arena Corvus'), matching: find.byType(Row))
+        .first;
+    expect(tester.getSize(tileRow).width, greaterThan(180),
+        reason: 'las columnas del panel se colapsaron');
+  });
+
+  testWidgets('resaltar un destino con el cursor no desborda su fila',
+      (tester) async {
+    // El desborde real aparecía solo al resaltar: la flecha de la derecha
+    // añade ancho a una fila ya ajustada.
+    await pumpShell(tester, size: const Size(1024, 768));
+
+    await tester.tap(find.text('Más'));
+    await tester.pumpAndSettle();
+
+    final gesture =
+        await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+
+    for (final label in ['Arena Corvus', 'Certificados', 'Glosario']) {
+      await gesture.moveTo(tester.getCenter(find.text(label)));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull,
+          reason: 'desbordó al resaltar "$label"');
+    }
+  });
+
+  testWidgets('el menú "Más" no desborda en una ventana de escritorio estrecha',
+      (tester) async {
+    // El panel vive dentro de un BackdropFilter, que no reporta ancho
+    // intrínseco: si el ancho no se fija por fuera, el menú se colapsa y las
+    // filas de cada destino desbordan.
+    await pumpShell(tester, size: const Size(900, 700));
+
+    await tester.tap(find.text('Más'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Arena Corvus'), findsOneWidget);
+
+    // No basta con que el texto exista: si el panel se colapsa, el destino
+    // queda ilegible y la fila desborda en cuanto el cursor lo resalta.
+    final tileRow = find
+        .ancestor(of: find.text('Arena Corvus'), matching: find.byType(Row))
+        .first;
+    expect(tester.getSize(tileRow).width, greaterThan(160),
+        reason: 'el panel del menú se colapsó');
   });
 
   testWidgets('elegir un destino del menú navega hasta él', (tester) async {
