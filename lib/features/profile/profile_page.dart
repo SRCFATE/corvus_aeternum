@@ -18,6 +18,7 @@ import '../../shared/widgets/corvus_surface.dart';
 import '../../shared/widgets/user_avatar.dart';
 import '../../core/theme/corvus_design.dart';
 import '../../providers/conspiration_provider.dart';
+import '../auth/sign_out_flow.dart';
 import '../conspiracies/conspiracy_rituals.dart';
 import '../conspiracies/conspiracy_strip.dart';
 import '../work/upload_wizard_sheet.dart';
@@ -314,7 +315,7 @@ class _ProfilePageState extends State<ProfilePage>
                       _load();
                     },
                     onFollow: _toggleFollow,
-                    onSignOut: () => context.read<AuthProvider>().signOut(),
+                    onSignOut: () => confirmAndSignOut(context),
                     onBack: _isExternalProfile
                         ? () => context.canPop()
                             ? context.pop()
