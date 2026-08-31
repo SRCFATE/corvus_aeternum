@@ -107,16 +107,28 @@ class AuthService {
   ///
   /// La respuesta es la misma exista o no la cuenta, salvo el límite de envíos.
   Future<void> resetPassword(String email) async {
-    final response = await supabase.functions.invoke(
-      'send-recovery-code',
-      body: {'email': email.trim().toLowerCase()},
-    );
+    try {
+      final response = await supabase.functions.invoke(
+        'send-recovery-code',
+        body: {'email': email.trim().toLowerCase()},
+      );
 
-    final data = response.data;
-    if (data is Map && data['ok'] != true) {
+      final data = response.data;
+      if (data is Map && data['ok'] != true) {
+        throw CorvusRpcException(
+          data['reason_code'] as String? ?? 'RECOVERY_ISSUE_FAILED',
+          Map<String, dynamic>.from(data),
+        );
+      }
+    } on FunctionException catch (e) {
+      // invoke() lanza en respuestas 4xx/5xx en vez de devolverlas: el
+      // reason_code viaja dentro de `details` y hay que rescatarlo para no
+      // mostrar la excepción cruda al artista.
+      final details = e.details;
+      final code = details is Map ? details['reason_code'] as String? : null;
       throw CorvusRpcException(
-        data['reason_code'] as String? ?? 'RECOVERY_ISSUE_FAILED',
-        Map<String, dynamic>.from(data),
+        code ?? 'RECOVERY_ISSUE_FAILED',
+        details is Map ? Map<String, dynamic>.from(details) : const {},
       );
     }
   }

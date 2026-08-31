@@ -60,9 +60,15 @@ String corvusReasonMessage(String? code) {
     case 'PASSWORD_TOO_SHORT':
       return 'La contraseña necesita al menos 6 caracteres.';
     case 'EMAIL_NOT_CONFIGURED':
-      return 'El envío de correos aún no está configurado en el servidor.';
+      return 'El envío de correos aún no está configurado. Falta la clave del '
+          'proveedor en el servidor.';
+    case 'RECOVERY_ISSUE_FAILED':
+      return 'No pudimos generar el código. Inténtalo de nuevo en un momento.';
     case 'EMAIL_SEND_FAILED':
       return 'No se pudo enviar el correo. Inténtalo de nuevo en un momento.';
+    case 'EMAIL_DOMAIN_NOT_VERIFIED':
+      return 'El servidor de correo aún está en modo de pruebas y solo puede '
+          'escribir a la dirección del administrador.';
     case 'EMAIL_INVALID':
       return 'Ese correo no parece válido.';
 

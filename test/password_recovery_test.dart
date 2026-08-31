@@ -1,4 +1,5 @@
 import 'package:corvus_aeternum/features/auth/recover_password_page.dart';
+import 'package:corvus_aeternum/core/rpc_error.dart';
 import 'package:corvus_aeternum/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,6 +118,44 @@ void main() {
     test('texto vacío no revienta', () {
       expect(AuthService.normalizeRecoveryCode(''), '');
       expect(AuthService.normalizeRecoveryCode('   '), '');
+    });
+  });
+
+  group('errores del envío llegan legibles', () {
+    // invoke() lanza FunctionException en 4xx/5xx en vez de devolver el
+    // cuerpo: si no se rescata el reason_code de `details`, el artista ve la
+    // excepción cruda de Dart en pantalla.
+    test('cada código de envío tiene mensaje propio', () {
+      for (final code in [
+        'EMAIL_NOT_CONFIGURED',
+        'EMAIL_SEND_FAILED',
+        'EMAIL_DOMAIN_NOT_VERIFIED',
+        'EMAIL_INVALID',
+        'RECOVERY_RATE_LIMIT',
+        'RECOVERY_ISSUE_FAILED',
+      ]) {
+        final msg = corvusReasonMessage(code);
+        expect(msg, isNotEmpty);
+        expect(msg, isNot(contains(code)),
+            reason: '$code se está mostrando crudo');
+        expect(msg, isNot(contains('Exception')));
+      }
+    });
+
+    test('un reason_code desconocido tampoco filtra jerga', () {
+      final msg = corvusReasonMessage('ALGO_RARO_123');
+      expect(msg, isNot(contains('ALGO_RARO_123')));
+      expect(msg, isNot(contains('FunctionException')));
+    });
+
+    test('la excepción se construye con los datos del servidor', () {
+      const e = CorvusRpcException(
+        'EMAIL_NOT_CONFIGURED',
+        {'ok': false, 'reason_code': 'EMAIL_NOT_CONFIGURED'},
+      );
+      expect(e.reasonCode, 'EMAIL_NOT_CONFIGURED');
+      expect(e.message, contains('configurado'));
+      expect(e.toString(), isNot(contains('Instance of')));
     });
   });
 }
