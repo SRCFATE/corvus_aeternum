@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'corvus_markdown_preview.dart';
 
@@ -19,6 +20,8 @@ class CorvusTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final void Function(String)? onSubmitted;
   final FocusNode? focusNode;
+  final TextCapitalization textCapitalization;
+  final List<TextInputFormatter>? inputFormatters;
   final bool markdownPreview;
 
   const CorvusTextField({
@@ -39,6 +42,8 @@ class CorvusTextField extends StatelessWidget {
     this.textInputAction,
     this.onSubmitted,
     this.focusNode,
+    this.textCapitalization = TextCapitalization.none,
+    this.inputFormatters,
     this.markdownPreview = true,
   });
 
@@ -57,6 +62,8 @@ class CorvusTextField extends StatelessWidget {
       textInputAction: textInputAction,
       onFieldSubmitted: onSubmitted,
       focusNode: focusNode,
+      textCapitalization: textCapitalization,
+      inputFormatters: inputFormatters,
       style: const TextStyle(fontSize: 15),
       decoration: InputDecoration(
         labelText: label,

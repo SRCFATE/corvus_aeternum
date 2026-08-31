@@ -48,6 +48,24 @@ String corvusReasonMessage(String? code) {
     case 'CANNOT_BAN_ADMIN':
       return 'No puedes suspender a otro administrador.';
 
+    // ── Recuperación de contraseña ───────────────────────────────────────────
+    case 'RECOVERY_CODE_INVALID':
+      return 'Ese código no es correcto. Revísalo o pide uno nuevo.';
+    case 'RECOVERY_CODE_EXPIRED':
+      return 'El código caducó. Solicita uno nuevo.';
+    case 'RECOVERY_TOO_MANY_ATTEMPTS':
+      return 'Demasiados intentos con este código. Pide uno nuevo.';
+    case 'RECOVERY_RATE_LIMIT':
+      return 'Ya pediste varios códigos. Espera una hora antes de intentarlo de nuevo.';
+    case 'PASSWORD_TOO_SHORT':
+      return 'La contraseña necesita al menos 6 caracteres.';
+    case 'EMAIL_NOT_CONFIGURED':
+      return 'El envío de correos aún no está configurado en el servidor.';
+    case 'EMAIL_SEND_FAILED':
+      return 'No se pudo enviar el correo. Inténtalo de nuevo en un momento.';
+    case 'EMAIL_INVALID':
+      return 'Ese correo no parece válido.';
+
     // ── Sesión ───────────────────────────────────────────────────────────────
     case 'NOT_AUTHENTICATED':
       return 'El archivo no te reconoce. Inicia sesión.';

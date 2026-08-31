@@ -64,13 +64,21 @@ void main() {
       // Sin nada: pide el código y la contraseña.
       await tester.tap(find.text('Cambiar contraseña'));
       await tester.pumpAndSettle();
-      expect(find.text('Pega el código que recibiste'), findsOneWidget);
+      expect(find.text('Escribe el código que recibiste'), findsOneWidget);
       expect(find.text('Usa al menos 6 caracteres'), findsOneWidget);
 
-      // Contraseñas distintas.
       final fields = find.byType(TextFormField);
+
+      // Un código de otra longitud se rechaza antes de salir a la red.
       await tester.enterText(fields.at(0), '123456');
       await tester.enterText(fields.at(1), 'unaClaveLarga');
+      await tester.enterText(fields.at(2), 'unaClaveLarga');
+      await tester.tap(find.text('Cambiar contraseña'));
+      await tester.pumpAndSettle();
+      expect(find.text('El código tiene 8 caracteres'), findsOneWidget);
+
+      // Con código válido pero contraseñas distintas.
+      await tester.enterText(fields.at(0), 'ABCD2345');
       await tester.enterText(fields.at(2), 'otraDistinta');
       await tester.tap(find.text('Cambiar contraseña'));
       await tester.pumpAndSettle();
@@ -90,41 +98,25 @@ void main() {
     });
   });
 
-  group('lectura del código pegado', () {
-    // Según cómo esté la plantilla del correo, el artista pegará un código de
-    // seis dígitos o el enlace completo. Ambos deben funcionar.
-    test('un código de seis dígitos no se confunde con un enlace', () {
-      expect(AuthService.extractTokenHash('123456'), isNull);
-      expect(AuthService.extractTokenHash('  907214 '), isNull);
+  group('normalización del código escrito', () {
+    // El código viaja en un correo: la gente lo pega con espacios, en
+    // minúsculas o con guiones. Todo eso debe seguir funcionando.
+    test('pasa a mayúsculas', () {
+      expect(AuthService.normalizeRecoveryCode('abcd2345'), 'ABCD2345');
     });
 
-    test('extrae token_hash de la query del enlace', () {
-      const link =
-          'https://qqmzeapepoxadspupmuz.supabase.co/auth/v1/verify'
-          '?token_hash=pkce_abc123&type=recovery';
-      expect(AuthService.extractTokenHash(link), 'pkce_abc123');
+    test('quita espacios y guiones al pegar', () {
+      expect(AuthService.normalizeRecoveryCode(' ABCD-2345 '), 'ABCD2345');
+      expect(AuthService.normalizeRecoveryCode('ABC D23 45'), 'ABCD2345');
     });
 
-    test('extrae el token cuando viene tras el fragmento', () {
-      const link = 'https://corvus.app/reset#token=frag987&type=recovery';
-      expect(AuthService.extractTokenHash(link), 'frag987');
+    test('descarta cualquier símbolo ajeno al alfabeto', () {
+      expect(AuthService.normalizeRecoveryCode('«ABCD2345»'), 'ABCD2345');
     });
 
-    test('prefiere token_hash sobre token si vienen ambos', () {
-      const link = 'https://corvus.app/r?token=viejo&token_hash=nuevo';
-      expect(AuthService.extractTokenHash(link), 'nuevo');
-    });
-
-    test('devuelve null si el enlace no trae token', () {
-      expect(
-        AuthService.extractTokenHash('https://corvus.app/reset?type=recovery'),
-        isNull,
-      );
-    });
-
-    test('texto arbitrario no revienta el analizador', () {
-      expect(AuthService.extractTokenHash(''), isNull);
-      expect(AuthService.extractTokenHash('hola mundo'), isNull);
+    test('texto vacío no revienta', () {
+      expect(AuthService.normalizeRecoveryCode(''), '');
+      expect(AuthService.normalizeRecoveryCode('   '), '');
     });
   });
 }

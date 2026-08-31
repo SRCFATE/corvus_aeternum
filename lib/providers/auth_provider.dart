@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import '../core/rpc_error.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/conspiracy_pulse.dart';
@@ -101,6 +102,10 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _authService.resetPassword(email);
       return true;
+    } on CorvusRpcException catch (e) {
+      _error = e.message;
+      notifyListeners();
+      return false;
     } catch (e) {
       _error = _parseError(e.toString());
       notifyListeners();
@@ -108,11 +113,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  /// Canjea el código y fija la nueva contraseña. Al terminar el artista queda
-  /// dentro con su perfil cargado.
+  /// Canjea el código, fija la nueva contraseña y entra con ella. Al terminar
+  /// el artista queda dentro con su perfil cargado.
   Future<bool> completePasswordReset({
     required String email,
-    required String codeOrLink,
+    required String code,
     required String newPassword,
   }) async {
     _error = null;
@@ -120,14 +125,21 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _authService.verifyRecoveryCode(
+      await _authService.redeemRecoveryCode(
         email: email,
-        codeOrLink: codeOrLink,
+        code: code,
+        newPassword: newPassword,
       );
-      await _authService.updatePassword(newPassword);
+      // El canje cierra las sesiones previas; se entra con la clave nueva.
+      await _authService.signIn(email.trim(), newPassword);
       await _loadProfile();
       return _status == AuthStatus.authenticated ||
           _status == AuthStatus.noProfile;
+    } on CorvusRpcException catch (e) {
+      _error = e.message;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
     } catch (e) {
       _error = _parseError(e.toString());
       _status = AuthStatus.unauthenticated;

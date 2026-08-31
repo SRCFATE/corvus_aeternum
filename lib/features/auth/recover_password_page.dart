@@ -7,6 +7,7 @@ import '../../core/theme/corvus_design.dart';
 import '../../providers/auth_provider.dart';
 import '../../shared/widgets/corvus_button.dart';
 import '../../shared/widgets/corvus_text_field.dart';
+import '../../services/auth_service.dart';
 import 'auth_chrome.dart';
 
 /// Recuperación de contraseña en dos pasos.
@@ -84,7 +85,7 @@ class _RecoverPasswordPageState extends State<RecoverPasswordPage> {
 
     final ok = await auth.completePasswordReset(
       email: _emailController.text,
-      codeOrLink: _codeController.text,
+      code: _codeController.text,
       newPassword: _passwordController.text,
     );
 
@@ -234,7 +235,7 @@ class _RecoverPasswordPageState extends State<RecoverPasswordPage> {
             eyebrow: 'PASO 2 DE 2',
             title: 'Escribe tu nueva contraseña',
             subtitle:
-                'Revisa tu correo: pega el código de seis dígitos o el enlace completo que recibiste.',
+                'Revisa tu correo: escribe el código de 8 caracteres que te enviamos. Caduca en 15 minutos.',
           ),
           const SizedBox(height: CorvusSpacing.lg),
           Container(
@@ -271,12 +272,16 @@ class _RecoverPasswordPageState extends State<RecoverPasswordPage> {
           const SizedBox(height: CorvusSpacing.lg),
           CorvusTextField(
             controller: _codeController,
-            label: 'Código o enlace del correo',
-            hint: '123456',
+            label: 'Código de recuperación',
+            hint: 'ABCD2345',
             prefixIcon: const Icon(Icons.key_outlined),
-            validator: (v) => (v == null || v.trim().isEmpty)
-                ? 'Pega el código que recibiste'
-                : null,
+            textCapitalization: TextCapitalization.characters,
+            validator: (v) {
+              final clean = AuthService.normalizeRecoveryCode(v ?? '');
+              if (clean.isEmpty) return 'Escribe el código que recibiste';
+              if (clean.length != 8) return 'El código tiene 8 caracteres';
+              return null;
+            },
           ),
           const SizedBox(height: CorvusSpacing.lg),
           CorvusTextField(

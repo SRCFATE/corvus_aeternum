@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/rpc_error.dart';
@@ -100,63 +99,50 @@ class AuthService {
     );
   }
 
-  /// Envía el correo de recuperación. Supabase no revela si la dirección
-  /// existe, así que la respuesta es la misma en todos los casos.
+  /// Pide el código de recuperación de 8 caracteres.
+  ///
+  /// No se usa `resetPasswordForEmail`: su correo lleva un enlace al Site URL
+  /// (localhost), que en escritorio no lleva a ninguna parte. La Edge Function
+  /// genera el código y manda un correo propio.
+  ///
+  /// La respuesta es la misma exista o no la cuenta, salvo el límite de envíos.
   Future<void> resetPassword(String email) async {
-    await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+    final response = await supabase.functions.invoke(
+      'send-recovery-code',
+      body: {'email': email.trim().toLowerCase()},
+    );
+
+    final data = response.data;
+    if (data is Map && data['ok'] != true) {
+      throw CorvusRpcException(
+        data['reason_code'] as String? ?? 'RECOVERY_ISSUE_FAILED',
+        Map<String, dynamic>.from(data),
+      );
+    }
   }
 
-  /// Canjea el código de recuperación por una sesión temporal.
+  /// Canjea el código y fija la contraseña nueva.
   ///
-  /// Acepta el código de seis dígitos del correo o —si la plantilla solo trae
-  /// el enlace— el enlace completo pegado: de ahí se extrae el `token_hash`.
-  /// Así el flujo funciona en escritorio sin registrar un esquema de URL.
-  Future<void> verifyRecoveryCode({
+  /// Al terminar cierra las sesiones abiertas en otros dispositivos, así que
+  /// el artista vuelve a entrar con la contraseña recién elegida.
+  Future<void> redeemRecoveryCode({
     required String email,
-    required String codeOrLink,
+    required String code,
+    required String newPassword,
   }) async {
-    final input = codeOrLink.trim();
-    final tokenHash = _extractTokenHash(input);
-
-    if (tokenHash != null) {
-      await supabase.auth.verifyOTP(
-        type: OtpType.recovery,
-        tokenHash: tokenHash,
-      );
-      return;
-    }
-
-    await supabase.auth.verifyOTP(
-      type: OtpType.recovery,
-      email: email.trim().toLowerCase(),
-      token: input,
+    unwrapRpc(
+      await supabase.rpc('redeem_password_recovery_code', params: {
+        'p_email': email.trim().toLowerCase(),
+        'p_code': normalizeRecoveryCode(code),
+        'p_new_password': newPassword,
+      }),
     );
   }
 
-  /// Establece la nueva contraseña sobre la sesión de recuperación abierta.
-  Future<void> updatePassword(String newPassword) async {
-    await supabase.auth.updateUser(UserAttributes(password: newPassword));
-  }
-
-  /// Saca el `token_hash` (o `token`) de un enlace de recuperación pegado.
-  /// Devuelve null si el texto no es un enlace, para tratarlo como código.
-  @visibleForTesting
-  static String? extractTokenHash(String input) => _extractTokenHash(input);
-
-  static String? _extractTokenHash(String input) {
-    if (!input.contains('://') && !input.contains('token')) return null;
-    final uri = Uri.tryParse(input);
-    if (uri == null) return null;
-
-    // El token puede venir en la query o tras el # del fragmento.
-    final params = <String, String>{
-      ...uri.queryParameters,
-      if (uri.fragment.isNotEmpty)
-        ...Uri.splitQueryString(uri.fragment),
-    };
-    final hash = params['token_hash'] ?? params['token'];
-    return (hash != null && hash.isNotEmpty) ? hash : null;
-  }
+  /// Limpia el código escrito: mayúsculas y sin espacios ni guiones, para que
+  /// pegarlo desde el correo funcione aunque arrastre formato.
+  static String normalizeRecoveryCode(String input) =>
+      input.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
 
   Future<void> deleteAccount() async {
     final user = supabase.auth.currentUser;
