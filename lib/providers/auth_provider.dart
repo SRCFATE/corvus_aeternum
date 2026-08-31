@@ -91,6 +91,51 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // ─── Recuperación de contraseña ────────────────────────────────────────────
+
+  /// Solicita el correo de recuperación. Devuelve true aunque la dirección no
+  /// exista: revelar qué correos están registrados sería una fuga de datos.
+  Future<bool> requestPasswordReset(String email) async {
+    _error = null;
+    notifyListeners();
+    try {
+      await _authService.resetPassword(email);
+      return true;
+    } catch (e) {
+      _error = _parseError(e.toString());
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Canjea el código y fija la nueva contraseña. Al terminar el artista queda
+  /// dentro con su perfil cargado.
+  Future<bool> completePasswordReset({
+    required String email,
+    required String codeOrLink,
+    required String newPassword,
+  }) async {
+    _error = null;
+    _status = AuthStatus.loading;
+    notifyListeners();
+
+    try {
+      await _authService.verifyRecoveryCode(
+        email: email,
+        codeOrLink: codeOrLink,
+      );
+      await _authService.updatePassword(newPassword);
+      await _loadProfile();
+      return _status == AuthStatus.authenticated ||
+          _status == AuthStatus.noProfile;
+    } catch (e) {
+      _error = _parseError(e.toString());
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> createProfile({
     required String username,
     required String displayName,
@@ -171,6 +216,22 @@ class AuthProvider extends ChangeNotifier {
     if (error.contains('Email already registered')) return 'Este correo ya está registrado.';
     if (error.contains('Password should be at least')) return 'La contraseña debe tener al menos 6 caracteres.';
     if (error.contains('duplicate key') && error.contains('username')) return 'Ese nombre de usuario ya está en uso.';
+    // Recuperación de contraseña
+    if (error.contains('Token has expired') || error.contains('expired')) {
+      return 'El código expiró. Solicita uno nuevo.';
+    }
+    if (error.contains('Invalid token') || error.contains('otp_expired') ||
+        error.contains('invalid_token')) {
+      return 'El código no es válido. Revísalo o pide uno nuevo.';
+    }
+    if (error.contains('same as the old password') ||
+        error.contains('should be different')) {
+      return 'La nueva contraseña debe ser distinta de la anterior.';
+    }
+    if (error.contains('For security purposes') || error.contains('rate limit') ||
+        error.contains('too many')) {
+      return 'Demasiados intentos seguidos. Espera un momento.';
+    }
     if (error.contains('network')) return 'Error de conexión. Verifica tu internet.';
     return error;
   }

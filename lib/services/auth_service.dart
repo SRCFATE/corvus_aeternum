@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/rpc_error.dart';
@@ -99,8 +100,62 @@ class AuthService {
     );
   }
 
+  /// Envía el correo de recuperación. Supabase no revela si la dirección
+  /// existe, así que la respuesta es la misma en todos los casos.
   Future<void> resetPassword(String email) async {
-    await supabase.auth.resetPasswordForEmail(email);
+    await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+  }
+
+  /// Canjea el código de recuperación por una sesión temporal.
+  ///
+  /// Acepta el código de seis dígitos del correo o —si la plantilla solo trae
+  /// el enlace— el enlace completo pegado: de ahí se extrae el `token_hash`.
+  /// Así el flujo funciona en escritorio sin registrar un esquema de URL.
+  Future<void> verifyRecoveryCode({
+    required String email,
+    required String codeOrLink,
+  }) async {
+    final input = codeOrLink.trim();
+    final tokenHash = _extractTokenHash(input);
+
+    if (tokenHash != null) {
+      await supabase.auth.verifyOTP(
+        type: OtpType.recovery,
+        tokenHash: tokenHash,
+      );
+      return;
+    }
+
+    await supabase.auth.verifyOTP(
+      type: OtpType.recovery,
+      email: email.trim().toLowerCase(),
+      token: input,
+    );
+  }
+
+  /// Establece la nueva contraseña sobre la sesión de recuperación abierta.
+  Future<void> updatePassword(String newPassword) async {
+    await supabase.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
+  /// Saca el `token_hash` (o `token`) de un enlace de recuperación pegado.
+  /// Devuelve null si el texto no es un enlace, para tratarlo como código.
+  @visibleForTesting
+  static String? extractTokenHash(String input) => _extractTokenHash(input);
+
+  static String? _extractTokenHash(String input) {
+    if (!input.contains('://') && !input.contains('token')) return null;
+    final uri = Uri.tryParse(input);
+    if (uri == null) return null;
+
+    // El token puede venir en la query o tras el # del fragmento.
+    final params = <String, String>{
+      ...uri.queryParameters,
+      if (uri.fragment.isNotEmpty)
+        ...Uri.splitQueryString(uri.fragment),
+    };
+    final hash = params['token_hash'] ?? params['token'];
+    return (hash != null && hash.isNotEmpty) ? hash : null;
   }
 
   Future<void> deleteAccount() async {

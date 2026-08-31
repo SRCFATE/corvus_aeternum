@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../shared/widgets/corvus_button.dart';
 import '../../shared/widgets/corvus_text_field.dart';
+import 'auth_chrome.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -96,7 +97,7 @@ class _RegisterPageState extends State<RegisterPage> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          const _AuthBackground(),
+          const AuthBackground(),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -106,7 +107,13 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: isWide
                       ? Row(
                           children: [
-                            const Expanded(child: _BrandPanel()),
+                            const Expanded(
+                              child: AuthBrandPanel(
+                                title: 'ÚNETE AL\nARCHIVO',
+                                subtitle:
+                                    'Registra tu obra, elige tu conspiración y deja huella en el legado.',
+                              ),
+                            ),
                             const SizedBox(width: 24),
                             Expanded(child: _RegisterCard(form: _buildForm())),
                           ],
@@ -363,61 +370,6 @@ class _MobileLogo extends StatelessWidget {
   }
 }
 
-class _BrandPanel extends StatelessWidget {
-  const _BrandPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 560,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary.withValues(alpha: 0.20),
-            AppColors.card,
-            AppColors.surface,
-          ],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.07),
-        ),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _LogoBlock(),
-          Spacer(flex: 2),
-          SizedBox(height: 80),
-          Text(
-            'Crea una identidad que pueda ser encontrada, seguida y recordada.',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              height: 0.95,
-              letterSpacing: -1.6,
-            ),
-          ),
-          SizedBox(height: 20),
-          Text(
-            'Tu cuenta será el inicio de tu existencia dentro del archivo interminable de Corvus.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 16,
-              height: 1.7,
-            ),
-          ),
-          Spacer(flex: 3),
-        ],
-      ),
-    );
-  }
-}
-
 class _LogoBlock extends StatelessWidget {
   final bool compact;
 
@@ -470,54 +422,3 @@ class _LogoBlock extends StatelessWidget {
 }
 
 
-class _AuthBackground extends StatelessWidget {
-  const _AuthBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned(
-          top: -140,
-          right: -110,
-          child: _Glow(
-            size: 360,
-            color: AppColors.primary.withValues(alpha: 0.12),
-          ),
-        ),
-        Positioned(
-          bottom: -120,
-          left: -90,
-          child: _Glow(
-            size: 300,
-            color: AppColors.secondary.withValues(alpha: 0.09),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Glow extends StatelessWidget {
-  final double size;
-  final Color color;
-
-  const _Glow({
-    required this.size,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, Colors.transparent],
-        ),
-      ),
-    );
-  }
-}

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/profile_service.dart';
 
 import '../../features/auth/login_page.dart';
+import '../../features/auth/recover_password_page.dart';
 import '../../features/auth/register_page.dart';
 import '../../features/auth/create_profile_page.dart';
 import '../../features/home/home_shell.dart';
@@ -51,9 +52,10 @@ GoRouter buildRouter() {
       final isLogin = location.startsWith('/login');
       final isRegister = location.startsWith('/register');
       final isCreateProfile = location.startsWith('/create-profile');
+      final isRecover = location.startsWith('/recover');
       final isPublicCertificate = location.startsWith('/certificate/');
 
-      final isAuthRoute = isLogin || isRegister || isCreateProfile;
+      final isAuthRoute = isLogin || isRegister || isCreateProfile || isRecover;
 
       if (!isAuth) {
         if (isAuthRoute || isPublicCertificate) return null;
@@ -85,6 +87,12 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/register',
         builder: (_, __) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: '/recover',
+        builder: (_, state) => RecoverPasswordPage(
+          initialEmail: state.uri.queryParameters['email'],
+        ),
       ),
       GoRoute(
         path: '/create-profile',
