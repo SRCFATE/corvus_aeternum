@@ -11,7 +11,11 @@ import '../../shared/widgets/corvus_text_field.dart';
 import 'auth_chrome.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  /// Destino que arrastra el visitante desde el login, para volver ahí una vez
+  /// creado el perfil.
+  final String? redirectTo;
+
+  const RegisterPage({super.key, this.redirectTo});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -48,7 +52,12 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!mounted) return;
 
     if (ok) {
-      context.go('/create-profile');
+      final target = widget.redirectTo;
+      context.go(
+        target == null
+            ? '/create-profile'
+            : '/create-profile?redirect=${Uri.encodeComponent(target)}',
+      );
     } else if (auth.error != null) {
       _showError(auth.error!);
       auth.clearError();

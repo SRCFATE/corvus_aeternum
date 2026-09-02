@@ -27,7 +27,10 @@ const _disciplines = [
 ];
 
 class CreateProfilePage extends StatefulWidget {
-  const CreateProfilePage({super.key});
+  /// Último tramo del destino que arrastraba el visitante desde el login.
+  final String? redirectTo;
+
+  const CreateProfilePage({super.key, this.redirectTo});
 
   @override
   State<CreateProfilePage> createState() => _CreateProfilePageState();
@@ -73,7 +76,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     if (!mounted) return;
 
     if (ok) {
-      context.go('/feed');
+      context.go(widget.redirectTo ?? '/discover');
     } else if (auth.error != null) {
       _showError(auth.error!);
       auth.clearError();

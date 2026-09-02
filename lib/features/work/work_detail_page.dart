@@ -501,7 +501,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
             onPressed: () =>
-                context.canPop() ? context.pop() : context.go('/feed'),
+                context.canPop() ? context.pop() : context.go('/discover'),
           ),
         ),
         body: CorvusEmptyState(
@@ -509,7 +509,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
           title: 'Obra no encontrada',
           subtitle: 'Esta pieza no existe, fue archivada o ya no esta publica.',
           actionText: 'Volver a explorar',
-          onAction: () => context.go('/feed'),
+          onAction: () => context.go('/discover'),
         ),
       );
     }
@@ -563,7 +563,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       tooltip: 'Volver',
                       onTap: () => context.canPop()
                           ? context.pop()
-                          : context.go('/feed'),
+                          : context.go('/discover'),
                     ),
                     const SizedBox(width: 8),
                     _TopBarBrand(compact: compact),
@@ -2703,7 +2703,7 @@ class _TopBarBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.go('/feed'),
+      onTap: () => context.go('/discover'),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Row(

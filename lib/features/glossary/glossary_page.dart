@@ -217,7 +217,7 @@ class _GlossaryPageState extends State<GlossaryPage> {
       children: [
         IconButton(
           onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/feed'),
+              context.canPop() ? context.pop() : context.go('/discover'),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             size: 18,

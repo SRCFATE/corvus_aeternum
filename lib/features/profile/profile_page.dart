@@ -206,7 +206,7 @@ class _ProfilePageState extends State<ProfilePage>
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
             onPressed: () =>
-                context.canPop() ? context.pop() : context.go('/feed'),
+                context.canPop() ? context.pop() : context.go('/discover'),
           ),
         ),
         body: CorvusEmptyState(
@@ -216,7 +216,7 @@ class _ProfilePageState extends State<ProfilePage>
               _errorMessage ?? 'La cuenta no existe o ya no esta disponible.',
           actionText: 'Volver',
           onAction: () =>
-              context.canPop() ? context.pop() : context.go('/feed'),
+              context.canPop() ? context.pop() : context.go('/discover'),
         ),
       );
     }
@@ -319,7 +319,7 @@ class _ProfilePageState extends State<ProfilePage>
                     onBack: _isExternalProfile
                         ? () => context.canPop()
                             ? context.pop()
-                            : context.go('/feed')
+                            : context.go('/discover')
                         : null,
                     onCopy: _copyToClipboard,
                     statBuilder: _statWidget,

@@ -157,7 +157,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, size: 18),
           onPressed: () =>
-              context.canPop() ? context.pop() : context.go('/feed'),
+              context.canPop() ? context.pop() : context.go('/discover'),
         ),
         actions: [
           IconButton(

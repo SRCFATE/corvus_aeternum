@@ -443,7 +443,7 @@ class _CertificateDetailPageState extends State<CertificateDetailPage> {
         title: 'Certificado no encontrado',
         subtitle: 'El número no existe en el registro Aeternum.',
         actionText: 'Volver',
-        onAction: () => context.canPop() ? context.pop() : context.go('/feed'),
+        onAction: () => context.canPop() ? context.pop() : context.go('/discover'),
       ),
     );
   }

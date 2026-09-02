@@ -95,7 +95,7 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
             onPressed: () =>
-                context.canPop() ? context.pop() : context.go('/feed'),
+                context.canPop() ? context.pop() : context.go('/discover'),
           ),
         ),
         body: CorvusEmptyState(
@@ -104,7 +104,7 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
           subtitle:
               'El manuscrito no tiene capitulos publicados o no se pudo abrir.',
           actionText: 'Volver a explorar',
-          onAction: () => context.go('/feed'),
+          onAction: () => context.go('/discover'),
         ),
       );
     }
@@ -522,7 +522,7 @@ class _TopBarBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.go('/feed'),
+      onTap: () => context.go('/discover'),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Row(

@@ -668,7 +668,7 @@ class _UploadWorkPageState extends State<UploadWorkPage> {
         context.go('/work/${saved.id}');
       } else {
         _showMessage('Borrador guardado');
-        context.go('/feed');
+        context.go('/discover');
       }
     } catch (e) {
       if (!mounted) return;

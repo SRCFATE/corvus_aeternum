@@ -10,7 +10,11 @@ import 'auth_chrome.dart';
 import 'recover_password_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  /// A dónde volver tras entrar. Lo pone el router cuando un visitante abre
+  /// una pantalla que pide sesión, para no perder el enlace que seguía.
+  final String? redirectTo;
+
+  const LoginPage({super.key, this.redirectTo});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -43,7 +47,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (ok) {
-      context.go('/feed');
+      context.go(widget.redirectTo ?? '/discover');
     } else if (auth.error != null) {
       _showError(auth.error!);
       auth.clearError();
@@ -108,6 +112,7 @@ class _LoginPageState extends State<LoginPage> {
               setState(() => _obscurePassword = !_obscurePassword);
             },
             onLogin: _login,
+            redirectTo: widget.redirectTo,
           ),
         ),
       ],
@@ -125,6 +130,7 @@ class _LoginPageState extends State<LoginPage> {
       },
       onLogin: _login,
       showLogo: true,
+      redirectTo: widget.redirectTo,
     );
   }
 }
@@ -137,6 +143,7 @@ class _LoginCard extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onLogin;
   final bool showLogo;
+  final String? redirectTo;
 
   const _LoginCard({
     required this.formKey,
@@ -146,6 +153,7 @@ class _LoginCard extends StatelessWidget {
     required this.onTogglePassword,
     required this.onLogin,
     this.showLogo = false,
+    this.redirectTo,
   });
 
   @override
@@ -246,7 +254,12 @@ class _LoginCard extends StatelessWidget {
             const SizedBox(height: 22),
             Center(
               child: TextButton(
-                onPressed: () => context.push('/register'),
+                // Registrarse desde aquí conserva el mismo destino.
+                onPressed: () => context.push(
+                  redirectTo == null
+                      ? '/register'
+                      : '/register?redirect=${Uri.encodeComponent(redirectTo!)}',
+                ),
                 child: const Text.rich(
                   TextSpan(
                     text: '¿No tienes cuenta? ',

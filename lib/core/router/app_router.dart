@@ -38,55 +38,144 @@ import '../../features/forums/create_forum_page.dart';
 import '../../features/forums/forum_detail_page.dart';
 import '../../features/forums/forum_thread_page.dart';
 
+/// Corvus es abierto para descubrir y consultar, y autenticado para
+/// participar. Estas son las rutas que alguien sin sesión puede abrir; las
+/// acciones (dar like, guardar, comentar, seguir, publicar) piden sesión
+/// dentro de la propia pantalla, sin duplicarla en versión pública.
+bool isPublicLocation(String location) {
+  const publicRoutes = {
+    '/discover',
+    '/artists',
+    '/arena',
+    '/ranking',
+    '/challenges',
+  };
+
+  if (publicRoutes.contains(location)) return true;
+
+  // El perfil público de un artista es /profile/:username. El perfil propio
+  // vive en /profile y su edición en /profile/edit, y ambos piden sesión.
+  if (location.startsWith('/profile/') && location != '/profile/edit') {
+    return true;
+  }
+
+  const publicPrefixes = ['/work/', '/artist/', '/certificate/'];
+
+  return publicPrefixes.any(location.startsWith);
+}
+
+/// El destino que el visitante intentaba abrir antes de que le pidiéramos
+/// sesión. Solo se acepta una ruta interna: un destino absoluto o
+/// protocolo-relativo podría sacar al artista de Corvus tras iniciar sesión.
+String? redirectTargetOf(Uri uri) {
+  final target = uri.queryParameters['redirect'];
+
+  if (target == null || target.isEmpty) return null;
+  if (!target.startsWith('/') || target.startsWith('//')) return null;
+
+  return target;
+}
+
+/// La regla de acceso de Corvus, aislada del cliente de Supabase para poder
+/// fijarla en pruebas. Devuelve la ruta a la que hay que desviar, o null si
+/// la navegación puede seguir.
+String? resolveAuthRedirect({
+  required bool isAuth,
+  required bool hasProfile,
+  required String location,
+  required Uri uri,
+}) {
+  final isLogin = location.startsWith('/login');
+  final isRegister = location.startsWith('/register');
+  final isCreateProfile = location.startsWith('/create-profile');
+  final isRecover = location.startsWith('/recover');
+
+  final isAuthRoute = isLogin || isRegister || isCreateProfile || isRecover;
+
+  if (!isAuth) {
+    if (isAuthRoute || isPublicLocation(location)) return null;
+
+    // Conserva a dónde iba: sin esto, un enlace compartido se perdería en el
+    // login y el visitante acabaría en Descubrir sin saber por qué.
+    return '/login?redirect=${Uri.encodeComponent(uri.toString())}';
+  }
+
+  if (isLogin || isRegister) {
+    return redirectTargetOf(uri) ?? '/discover';
+  }
+
+  if (!hasProfile && !isCreateProfile) {
+    return '/create-profile';
+  }
+
+  if (hasProfile && isCreateProfile) {
+    return redirectTargetOf(uri) ?? '/discover';
+  }
+
+  return null;
+}
+
+/// El tramo autenticado sí necesita saber si el perfil está creado, y esa
+/// consulta es asíncrona.
+Future<String?> _redirectForSession(Session session, GoRouterState state) async {
+  final hasProfile =
+      await ProfileService().getProfileById(session.user.id) != null;
+
+  return resolveAuthRedirect(
+    isAuth: true,
+    hasProfile: hasProfile,
+    location: state.matchedLocation,
+    uri: state.uri,
+  );
+}
+
 GoRouter buildRouter() {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/feed',
-    redirect: (context, state) async {
-      final supabase = Supabase.instance.client;
-      final session = supabase.auth.currentSession;
-      final isAuth = session != null;
+    initialLocation: '/discover',
+    // Sin `async`: un visitante no tiene perfil que consultar, así que su
+    // camino se resuelve en el acto y go_router no espera un Future en cada
+    // navegación pública.
+    redirect: (context, state) {
+      final session = Supabase.instance.client.auth.currentSession;
 
-      final location = state.matchedLocation;
-
-      final isLogin = location.startsWith('/login');
-      final isRegister = location.startsWith('/register');
-      final isCreateProfile = location.startsWith('/create-profile');
-      final isRecover = location.startsWith('/recover');
-      final isPublicCertificate = location.startsWith('/certificate/');
-
-      final isAuthRoute = isLogin || isRegister || isCreateProfile || isRecover;
-
-      if (!isAuth) {
-        if (isAuthRoute || isPublicCertificate) return null;
-        return '/login';
+      if (session == null) {
+        return resolveAuthRedirect(
+          isAuth: false,
+          hasProfile: false,
+          location: state.matchedLocation,
+          uri: state.uri,
+        );
       }
 
-      if (isAuth && (isLogin || isRegister)) {
-        return '/feed';
-      }
-
-      final hasProfile =
-          await ProfileService().getProfileById(session.user.id) != null;
-
-      if (!hasProfile && !isCreateProfile) {
-        return '/create-profile';
-      }
-
-      if (hasProfile && isCreateProfile) {
-        return '/feed';
-      }
-
-      return null;
+      return _redirectForSession(session, state);
     },
     routes: [
+      // La raíz es Descubrir, la Home de Corvus, con o sin sesión. El feed
+      // personal existe en /feed y no recupera ese papel.
+      GoRoute(
+        path: '/',
+        redirect: (_, __) => '/discover',
+      ),
+      // Alias semánticos: no duplican pantalla, solo dan URL propia a lo que
+      // ya vive dentro de Autores y de Arena.
+      GoRoute(
+        path: '/ranking',
+        redirect: (_, __) => '/artists',
+      ),
+      GoRoute(
+        path: '/challenges',
+        redirect: (_, __) => '/arena',
+      ),
       GoRoute(
         path: '/login',
-        builder: (_, __) => const LoginPage(),
+        builder: (_, state) =>
+            LoginPage(redirectTo: redirectTargetOf(state.uri)),
       ),
       GoRoute(
         path: '/register',
-        builder: (_, __) => const RegisterPage(),
+        builder: (_, state) =>
+            RegisterPage(redirectTo: redirectTargetOf(state.uri)),
       ),
       GoRoute(
         path: '/recover',
@@ -96,7 +185,8 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/create-profile',
-        builder: (_, __) => const CreateProfilePage(),
+        builder: (_, state) =>
+            CreateProfilePage(redirectTo: redirectTargetOf(state.uri)),
       ),
       ShellRoute(
         navigatorKey: shellNavigatorKey,
@@ -372,11 +462,11 @@ GoRouter buildRouter() {
                 await ProfileService().getProfileById(session.user.id);
 
             if (profile == null) return '/create-profile';
-            if (!profile.isAdmin) return '/feed';
+            if (!profile.isAdmin) return '/discover';
 
             return null;
           } catch (_) {
-            return '/feed';
+            return '/discover';
           }
         },
         builder: (_, __) => const AdminPanelPage(),

@@ -94,7 +94,7 @@ class _RecoverPasswordPageState extends State<RecoverPasswordPage> {
 
     if (ok) {
       _message('Contraseña actualizada. Bienvenido de vuelta.');
-      router.go('/feed');
+      router.go('/discover');
     } else if (auth.error != null) {
       _message(auth.error!, isError: true);
       auth.clearError();

@@ -192,7 +192,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => context.canPop() ? context.pop() : context.go('/feed'),
+            onTap: () => context.canPop() ? context.pop() : context.go('/discover'),
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
