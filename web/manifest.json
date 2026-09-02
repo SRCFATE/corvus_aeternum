@@ -1,12 +1,14 @@
 {
-    "name": "corvus_aeternum",
-    "short_name": "corvus_aeternum",
+    "name": "Corvus Aeternum",
+    "short_name": "Corvus",
+    "lang": "es",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#09090C",
+    "theme_color": "#09090C",
+    "description": "Corvus Aeternum, el archivo vivo de artistas, obra y legado.",
+    "orientation": "any",
+    "categories": ["art", "social", "productivity"],
     "prefer_related_applications": false,
     "icons": [
         {
