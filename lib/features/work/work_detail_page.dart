@@ -201,7 +201,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
           _certificate = certificate;
           _isLoading = false;
         });
-        _workService.recordView(widget.workId, userId);
+        _workService.recordView(widget.workId);
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_config.dart';
 import '../models/work.dart';
 import '../models/work_comment.dart';
+import 'visitor_token.dart';
 
 class WorkService {
   static const _optionalAeternumColumns = {
@@ -131,11 +132,15 @@ class WorkService {
         .eq('work_id', workId);
   }
 
-  Future<void> recordView(String workId, String? viewerId) async {
+  /// Anota una lectura. Quien decide si cuenta es el servidor: el RPC valida
+  /// que la obra sea pública y descarta repeticiones del mismo espectador
+  /// dentro de una ventana de seis horas. Ya no se escribe en `work_views`
+  /// directamente, para que el contador no se pueda inflar desde la API.
+  Future<void> recordView(String workId) async {
     try {
-      await supabase.from('work_views').insert({
-        'work_id': workId,
-        if (viewerId != null) 'viewer_id': viewerId,
+      await supabase.rpc('record_work_view', params: {
+        'p_work_id': workId,
+        'p_visitor_token': await VisitorToken.read(),
       });
     } catch (_) {}
   }
