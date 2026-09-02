@@ -1,0 +1,63 @@
+# Corvus se compila en CI y se publica por Direct Upload. El entorno de build
+# de Cloudflare Pages no trae Flutter, así que instalarlo allí en cada
+# despliegue dependería de scripts propios; aquí la fuente vive en el
+# repositorio y CI genera el artefacto de forma reproducible.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+# Un push nuevo sobre la misma referencia cancela la ejecución anterior: no
+# tiene sentido desplegar un commit que ya quedó atrás.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-y-desplegar:
+    name: Verificar y desplegar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7.0.1
+
+      # Versión fija, no `stable` a secas: es exactamente la que produjo estos
+      # tests y este build. Con el canal suelto, un cambio de Flutter podría
+      # romper un despliegue sin que el código hubiera cambiado.
+      - name: Instalar Flutter 3.44.0
+        uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+
+      - name: Resolver dependencias
+        run: flutter pub get
+
+      - name: Analizar
+        run: flutter analyze
+
+      - name: Pruebas
+        run: flutter test
+
+      - name: Compilar web
+        run: flutter build web --release
+
+      # La barrera de calidad: si algo de lo anterior falla, producción no se
+      # toca. Y una pull request llega hasta aquí sin desplegar nada.
+      - name: Desplegar a Cloudflare Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: >-
+          npx --yes wrangler@4.128.0 pages deploy build/web
+          --project-name corvus-aeternum
+          --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

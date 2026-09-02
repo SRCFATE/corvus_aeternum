@@ -45,6 +45,18 @@ lib/
 La navegación es por URL en todas las plataformas: `/work/:id`, `/profile/:username`,
 `/collection/:id`, `/auction/:id`, `/certificate/:number`.
 
+## Despliegue
+
+`main` es producción. Cada push ejecuta `.github/workflows/ci.yml`, que fija
+Flutter 3.44.0, analiza, pasa las pruebas, compila y solo entonces publica
+`build/web` en Cloudflare Pages con Wrangler. Si algo falla antes, no se
+despliega. Una pull request ejecuta las mismas comprobaciones sin tocar
+producción.
+
+El artefacto no se versiona: el repositorio guarda la fuente y CI lo genera.
+Hacen falta dos secretos en GitHub, `CLOUDFLARE_API_TOKEN` y
+`CLOUDFLARE_ACCOUNT_ID`, con el permiso mínimo para desplegar Pages.
+
 ## Base de datos
 
 Los esquemas SQL y las funciones están versionados en `docs/` y en `supabase/`.
