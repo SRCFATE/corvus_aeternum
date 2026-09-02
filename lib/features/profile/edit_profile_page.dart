@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/rpc_error.dart';
 import '../../core/theme/app_colors.dart';
+import '../../models/picked_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/profile_service.dart';
 import '../../services/storage_service.dart';
@@ -50,8 +50,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _profileService = ProfileService();
   final _storageService = StorageService();
 
-  File? _newAvatar;
-  File? _newBanner;
+  PickedImage? _newAvatar;
+  PickedImage? _newBanner;
   late Set<String> _selectedDisciplines;
   bool _isSaving = false;
 
@@ -89,17 +89,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Future<void> _pickAvatar() async {
     final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null && mounted) {
-      setState(() => _newAvatar = File(picked.path));
-    }
+    if (picked == null) return;
+
+    final image = await PickedImage.read(picked);
+    if (!mounted) return;
+
+    setState(() => _newAvatar = image);
   }
 
   Future<void> _pickBanner() async {
     final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null && mounted) {
-      setState(() => _newBanner = File(picked.path));
-    }
+    if (picked == null) return;
+
+    final image = await PickedImage.read(picked);
+    if (!mounted) return;
+
+    setState(() => _newBanner = image);
   }
 
   Future<void> _save() async {
@@ -313,7 +319,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               _newAvatar != null
                   ? CircleAvatar(
-                      radius: 50, backgroundImage: FileImage(_newAvatar!))
+                      radius: 50,
+                      backgroundImage: MemoryImage(_newAvatar!.bytes))
                   : UserAvatar(
                       imageUrl: profile.avatarUrl,
                       displayName: profile.displayName,

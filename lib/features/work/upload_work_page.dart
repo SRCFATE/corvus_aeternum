@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../models/aeternum_ficha.dart';
+import '../../models/picked_image.dart';
 import '../../models/work.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/storage_service.dart';
@@ -250,7 +250,7 @@ class _UploadWorkPageState extends State<UploadWorkPage> {
   final _storageService = StorageService();
 
   // Estado UI
-  File? _coverImage;
+  PickedImage? _coverImage;
   String? _coverUrl;
   late String _selectedDiscipline;
   String _selectedSubdiscipline = '';
@@ -437,13 +437,16 @@ class _UploadWorkPageState extends State<UploadWorkPage> {
   Future<void> _pickImage() async {
     final picked = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 88);
-    if (picked != null && mounted) {
-      setState(() {
-        _coverImage = File(picked.path);
-        _coverUrl = null;
-        _isDirty = true;
-      });
-    }
+    if (picked == null) return;
+
+    final image = await PickedImage.read(picked);
+    if (!mounted) return;
+
+    setState(() {
+      _coverImage = image;
+      _coverUrl = null;
+      _isDirty = true;
+    });
   }
 
   Map<String, dynamic> _buildPayload({
@@ -1367,7 +1370,7 @@ class _UploadWorkPageState extends State<UploadWorkPage> {
 class _SealSheet extends StatefulWidget {
   final String title;
   final String discipline, subdiscipline;
-  final File? coverImage;
+  final PickedImage? coverImage;
   final String? coverUrl;
   final bool hasImage;
   final TextEditingController priceController;
@@ -1475,7 +1478,8 @@ class _SealSheetState extends State<_SealSheet> {
                     width: 56,
                     height: 56,
                     child: widget.coverImage != null
-                        ? Image.file(widget.coverImage!, fit: BoxFit.cover)
+                        ? Image.memory(widget.coverImage!.bytes,
+                            fit: BoxFit.cover)
                         : (widget.coverUrl?.isNotEmpty ?? false)
                             ? Image.network(widget.coverUrl!,
                                 fit: BoxFit.cover,
@@ -1845,7 +1849,7 @@ class _SelectedDisciplineCard extends StatelessWidget {
 // ─── ImagePickerCard ──────────────────────────────────────────────────────────
 
 class _ImagePickerCard extends StatefulWidget {
-  final File? coverImage;
+  final PickedImage? coverImage;
   final String? coverUrl;
   final VoidCallback onTap;
   final VoidCallback? onRemove;
@@ -1895,7 +1899,8 @@ class _ImagePickerCardState extends State<_ImagePickerCard> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(23),
                       child: widget.coverImage != null
-                          ? Image.file(widget.coverImage!, fit: BoxFit.cover)
+                          ? Image.memory(widget.coverImage!.bytes,
+                              fit: BoxFit.cover)
                           : Image.network(
                               coverUrl!,
                               fit: BoxFit.cover,
@@ -2040,7 +2045,7 @@ class _OverlayAction extends StatelessWidget {
 
 class _WorkPreviewCard extends StatelessWidget {
   final String title, discipline, subdiscipline, authorName;
-  final File? coverImage;
+  final PickedImage? coverImage;
   final String? coverUrl;
 
   const _WorkPreviewCard(
@@ -2088,7 +2093,7 @@ class _WorkPreviewCard extends StatelessWidget {
             child: coverImage != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(13),
-                    child: Image.file(coverImage!,
+                    child: Image.memory(coverImage!.bytes,
                         fit: BoxFit.cover, width: double.infinity))
                 : hasRemoteCover
                     ? ClipRRect(
