@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +14,12 @@ import 'services/conspiracy_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // URLs reales en web: /work/:id en vez de /#/work/:id, para que un enlace
+  // compartido se lea como una dirección y no como un fragmento. Exige que el
+  // hosting sirva index.html en cualquier ruta (web/_redirects). En Android,
+  // iOS y escritorio esta llamada no hace nada.
+  usePathUrlStrategy();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,

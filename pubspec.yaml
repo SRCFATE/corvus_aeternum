@@ -11,6 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # URLs limpias en web (no-op en el resto de plataformas)
+  flutter_web_plugins:
+    sdk: flutter
+
   # Backend
   supabase_flutter: ^2.12.0
 

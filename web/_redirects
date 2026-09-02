@@ -1,0 +1,4 @@
+# Corvus usa rutas reales (usePathUrlStrategy). Cloudflare Pages sirve un
+# fichero por ruta, así que sin esto /work/:id devolvería 404 antes de que la
+# aplicación llegue a arrancar. El 200 sirve index.html conservando la URL.
+/*  /index.html  200
