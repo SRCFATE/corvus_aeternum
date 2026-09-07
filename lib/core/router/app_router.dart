@@ -29,6 +29,10 @@ import '../../features/artists/artists_page.dart';
 import '../../features/conspiracies/conspiracies_registry_page.dart';
 import '../../features/glossary/glossary_page.dart';
 import '../../features/atelier/atelier_page.dart';
+import '../../features/atelier/billing/presentation/billing_center_page.dart';
+import '../../features/atelier/billing/presentation/plans_page.dart';
+import '../../features/atelier/billing/presentation/workspace_detail_page.dart';
+import '../../features/atelier/billing/presentation/workspaces_page.dart';
 import 'navigation_coordinator.dart';
 import '../../features/insights/insights_page.dart';
 import '../../features/planner/planner_page.dart';
@@ -49,6 +53,9 @@ bool isPublicLocation(String location) {
     '/arena',
     '/ranking',
     '/challenges',
+    // Los planes se consultan sin sesión: quien evalúa Corvus antes de
+    // registrarse merece saber lo que cuesta. Contratar sí pide cuenta.
+    '/plans',
   };
 
   if (publicRoutes.contains(location)) return true;
@@ -443,6 +450,36 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/notifications',
         builder: (_, __) => const NotificationsPage(),
+      ),
+      // La comparación de planes vive fuera del shell: es una decisión, no un
+      // espacio en el que uno se quede.
+      GoRoute(
+        path: '/plans',
+        builder: (_, state) => PlansPage(
+          highlightFeature: state.uri.queryParameters['feature'],
+        ),
+      ),
+      GoRoute(
+        path: '/settings/billing',
+        builder: (_, state) => BillingCenterPage(
+          workspaceId: state.uri.queryParameters['workspace'],
+        ),
+      ),
+      // Los espacios de trabajo viven fuera del shell: administrar un estudio
+      // es una tarea, no un sitio donde uno se queda leyendo.
+      GoRoute(
+        path: '/workspaces',
+        builder: (_, __) => const WorkspacesPage(),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, state) {
+              final id = state.pathParameters['id'];
+              if (id == null) return const WorkspacesPage();
+              return WorkspaceDetailPage(workspaceId: id);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: '/conspiracies',

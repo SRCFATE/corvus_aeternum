@@ -25,6 +25,9 @@ void main() {
       '/profile/carlos',
       '/artist/8f2c',
       '/certificate/CA-0001',
+      // Los planes se consultan sin sesión: quien evalúa Corvus antes de
+      // registrarse merece saber lo que cuesta. Contratar sí pide cuenta.
+      '/plans',
     ];
 
     for (final ruta in publicas) {
@@ -54,6 +57,8 @@ void main() {
       '/admin',
       '/profile',
       '/profile/edit',
+      '/settings/billing',
+      '/workspaces',
     ];
 
     for (final ruta in privadas) {

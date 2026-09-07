@@ -1,0 +1,22 @@
+project_id = "qqmzeapepoxadspupmuz"
+
+[functions.send-recovery-code]
+verify_jwt = false
+
+# El checkout, el portal y las acciones de facturación identifican al artista
+# por su propio token dentro de la función (callerOf), no por el guardián de
+# la plataforma: así la respuesta puede ser `{ok:false, reason_code}` en vez de
+# un 401 opaco que Flutter no sabría traducir.
+[functions.billing-checkout]
+verify_jwt = false
+
+[functions.billing-portal]
+verify_jwt = false
+
+[functions.billing-manage]
+verify_jwt = false
+
+# Stripe no manda un JWT de Supabase: la autenticidad del aviso está en su
+# firma HMAC, que la función verifica antes de leer una sola línea del cuerpo.
+[functions.billing-webhook]
+verify_jwt = false

@@ -14,6 +14,9 @@ import '../../providers/conspiration_provider.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_markdown_preview.dart';
+import 'billing/presentation/export_sheet.dart';
+import 'billing/widgets/plan_badge.dart';
+import 'billing/widgets/usage_indicator.dart';
 import 'atelier_catalog.dart';
 import 'atelier_ui.dart';
 import 'atelier_element_editor.dart';
@@ -1607,64 +1610,17 @@ class _AtelierPageState extends State<AtelierPage> {
     );
   }
 
+  /// La exportacion dejo de ser un volcado JSON: ahora es la hoja de formatos,
+  /// con Markdown, TXT y JSON siempre abiertos —llevarse la obra no se cobra— y
+  /// los formatos de produccion con su puerta.
   Future<void> _openExportDialog() async {
-    final json = context.read<AtelierProvider>().exportJson();
-    await showDialog<void>(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: AppColors.surface,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 620),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Exportacion JSON',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        json,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cerrar'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    final profile = context.read<AuthProvider>().profile;
+    await showAtelierExportSheet(
+      context,
+      workspace: context.read<AtelierProvider>().workspace,
+      author: profile?.displayName.trim().isNotEmpty == true
+          ? profile!.displayName.trim()
+          : '',
     );
   }
 
@@ -1870,6 +1826,10 @@ class _AtelierTopBar extends StatelessWidget {
         final actions = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // El plan se ve donde se trabaja, sin ocupar sitio y sin pedir
+            // nada. Free tambien luce el suyo.
+            const PlanBadge(compact: true),
+            const SizedBox(width: 10),
             AtelierIconAction(
               icon: Icons.create_new_folder_outlined,
               tooltip: 'Nueva obra',
@@ -1890,7 +1850,7 @@ class _AtelierTopBar extends StatelessWidget {
             const SizedBox(width: 8),
             AtelierIconAction(
               icon: Icons.download_outlined,
-              tooltip: 'Exportar JSON',
+              tooltip: 'Exportar',
               onTap: onExport,
             ),
           ],
@@ -2212,6 +2172,8 @@ class _HomeView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
+        const _AtelierPlanPanel(),
+        const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 820;
@@ -2267,6 +2229,41 @@ class _HomeView extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Plan y espacio, en el sitio donde se trabaja.
+///
+/// Aparece siempre —tambien en Free— porque saber cuanto espacio queda es
+/// informacion util, no una amenaza. Solo cuando de verdad escasea cambia de
+/// color y ofrece salidas.
+class _AtelierPlanPanel extends StatelessWidget {
+  const _AtelierPlanPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return AtelierPanel(
+      accent: AppColors.gold,
+      title: 'Plan y espacio',
+      icon: Icons.workspace_premium_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const PlanBadge(),
+              const Spacer(),
+              TextButton(
+                onPressed: () => context.push('/settings/billing'),
+                child: const Text('Facturacion'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const StorageIndicator(),
+        ],
+      ),
     );
   }
 }

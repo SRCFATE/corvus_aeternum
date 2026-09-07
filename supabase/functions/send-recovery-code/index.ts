@@ -30,6 +30,62 @@ const json = (body: unknown, status = 200) =>
 
 const env = (k: string) => Deno.env.get(k)?.trim() || undefined;
 
+let cachedPublicKeys: Set<string> | undefined;
+
+function keysFromJsonBag(raw?: string): string[] {
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (value): value is string => typeof value === "string",
+      );
+    }
+    if (parsed && typeof parsed === "object") {
+      return Object.values(parsed).filter(
+        (value): value is string => typeof value === "string",
+      );
+    }
+  } catch {
+    return [raw];
+  }
+
+  return [];
+}
+
+function configuredPublicKeys(): Set<string> {
+  if (cachedPublicKeys) return cachedPublicKeys;
+
+  const keys = new Set<string>();
+  for (const key of keysFromJsonBag(env("SUPABASE_PUBLISHABLE_KEYS"))) {
+    keys.add(key);
+  }
+
+  const legacyAnon = env("SUPABASE_ANON_KEY");
+  if (legacyAnon) keys.add(legacyAnon);
+
+  cachedPublicKeys = keys;
+  return keys;
+}
+
+function bearerToken(req: Request): string | undefined {
+  const header = req.headers.get("authorization")?.trim();
+  if (!header?.toLowerCase().startsWith("bearer ")) return undefined;
+  return header.slice("bearer ".length).trim();
+}
+
+function callerHasProjectKey(req: Request): boolean {
+  const allowed = configuredPublicKeys();
+  if (allowed.size === 0) {
+    console.error("No hay llaves publicables disponibles para validar cliente.");
+    return false;
+  }
+
+  const candidates = [req.headers.get("apikey")?.trim(), bearerToken(req)];
+  return candidates.some((key) => key != null && allowed.has(key));
+}
+
 class SendError extends Error {
   constructor(readonly reasonCode: string, message: string) {
     super(message);
@@ -158,7 +214,16 @@ async function sendEmail(to: string, subject: string, html: string) {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  if (req.method !== "POST") return json({ ok: false, reason_code: "METHOD_NOT_ALLOWED" }, 405);
+  if (req.method !== "POST") {
+    return json({ ok: false, reason_code: "METHOD_NOT_ALLOWED" }, 405);
+  }
+
+  if (!callerHasProjectKey(req)) {
+    return json(
+      { ok: false, reason_code: "RECOVERY_CLIENT_UNAUTHORIZED" },
+      401,
+    );
+  }
 
   // Se comprueba ANTES de emitir: si no se puede enviar, no tiene sentido
   // quemar un código ni un intento del límite por hora del artista.
@@ -196,7 +261,10 @@ Deno.serve(async (req: Request) => {
   }
 
   if (data?.ok === false) {
-    return json({ ok: false, reason_code: data.reason_code ?? "RECOVERY_ISSUE_FAILED" }, 429);
+    return json(
+      { ok: false, reason_code: data.reason_code ?? "RECOVERY_ISSUE_FAILED" },
+      429,
+    );
   }
 
   // La cuenta no existe: se responde como si todo hubiera salido bien.
@@ -209,7 +277,8 @@ Deno.serve(async (req: Request) => {
       emailHtml(data.code, data.expires_in_minutes ?? 15),
     );
   } catch (err) {
-    const reason = err instanceof SendError ? err.reasonCode : "EMAIL_SEND_FAILED";
+    const reason =
+      err instanceof SendError ? err.reasonCode : "EMAIL_SEND_FAILED";
     console.error("Envío fallido:", err instanceof Error ? err.message : err);
     return json({ ok: false, reason_code: reason }, 502);
   }

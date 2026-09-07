@@ -10,6 +10,7 @@ import 'core/router/app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/atelier_provider.dart';
 import 'providers/conspiration_provider.dart';
+import 'providers/entitlement_provider.dart';
 import 'services/conspiracy_service.dart';
 
 Future<void> main() async {
@@ -59,6 +60,7 @@ class _CorvusAppState extends State<CorvusApp> {
         ChangeNotifierProvider(create: (_) => AuthProvider()..initialize()),
         ChangeNotifierProvider(create: (_) => ConspirationProvider()),
         ChangeNotifierProvider(create: (_) => AtelierProvider()),
+        ChangeNotifierProvider(create: (_) => EntitlementProvider()),
       ],
       child: _ConspirationLoader(
         router: _routerWrapper.router,
@@ -126,11 +128,19 @@ class _ConspirationLoaderState extends State<_ConspirationLoader>
     }
     if (profileId != _presenceProfileId) {
       _presenceProfileId = profileId;
-      if (profileId != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _recordPresence();
-        });
-      }
+      final entitlements = context.read<EntitlementProvider>();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (profileId == null) {
+          // Al cerrar sesión la copia local se borra: los derechos de una
+          // cuenta no pueden sobrevivir a su sesión en el dispositivo.
+          entitlements.clear();
+          return;
+        }
+        _recordPresence();
+        entitlements.load(profileId);
+      });
     }
   }
 

@@ -33,6 +33,20 @@ dependencies:
   shared_preferences: ^2.5.4
   intl: ^0.19.0
 
+  # El cobro ocurre en el proveedor de pagos, nunca dentro de Corvus: hace
+  # falta poder abrir su checkout y su portal de cliente.
+  url_launcher: ^6.3.1
+
+  # Descarga de exportaciones en web, la plataforma principal de Corvus. En el
+  # resto no se usa: allí la entrega cae en copiar al portapapeles.
+  web: ^1.1.0
+
+  # Exportación profesional. DOCX, EPUB y el paquete del proyecto son ZIP con
+  # XML dentro, así que basta un empaquetador; el PDF sí necesita un motor de
+  # maquetación propio.
+  archive: ^4.0.0
+  pdf: ^3.11.0
+
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

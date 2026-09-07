@@ -131,6 +131,7 @@ void main() {
         'EMAIL_SEND_FAILED',
         'EMAIL_DOMAIN_NOT_VERIFIED',
         'EMAIL_INVALID',
+        'RECOVERY_CLIENT_UNAUTHORIZED',
         'RECOVERY_RATE_LIMIT',
         'RECOVERY_ISSUE_FAILED',
       ]) {

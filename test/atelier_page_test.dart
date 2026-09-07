@@ -2,6 +2,7 @@ import 'package:corvus_aeternum/features/atelier/atelier_page.dart';
 import 'package:corvus_aeternum/providers/atelier_provider.dart';
 import 'package:corvus_aeternum/providers/auth_provider.dart';
 import 'package:corvus_aeternum/providers/conspiration_provider.dart';
+import 'package:corvus_aeternum/providers/entitlement_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -23,6 +24,9 @@ void main() {
           ChangeNotifierProvider(create: (_) => AuthProvider()),
           ChangeNotifierProvider(create: (_) => ConspirationProvider()),
           ChangeNotifierProvider(create: (_) => AtelierProvider()),
+          // La barra del taller muestra el plan activo: sin este proveedor la
+          // pantalla no se puede montar.
+          ChangeNotifierProvider(create: (_) => EntitlementProvider()),
         ],
         child: MaterialApp(
           home: AtelierPage(initialSection: initialSection),
