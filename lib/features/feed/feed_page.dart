@@ -5,10 +5,15 @@ import 'package:provider/provider.dart';
 
 import '../../core/supabase_config.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_breakpoints.dart';
 import '../../models/work.dart';
 import '../../providers/conspiration_provider.dart';
 import '../../services/work_service.dart';
 import '../../shared/layout/corvus_page.dart';
+import '../../shared/widgets/corvus_cta.dart';
+import '../../shared/widgets/corvus_motion.dart';
+import '../../shared/widgets/corvus_scroll_to_top.dart';
+import '../../shared/widgets/corvus_skeleton.dart';
 import '../../shared/widgets/work_card.dart';
 
 class FeedPage extends StatefulWidget {
@@ -134,99 +139,118 @@ class _FeedPageState extends State<FeedPage> {
   @override
   Widget build(BuildContext context) {
     final accent = context.watch<ConspirationProvider>().accent;
+    final layout = CorvusLayout.of(context);
+    final columns = layout.gridColumns(target: 280, min: 1, max: 5);
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: RefreshIndicator(
-        color: accent,
-        backgroundColor: AppColors.surface,
-        onRefresh: _loadFeed,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: CorvusPage.maxWidth),
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: _HeroSection(
-                    featuredWork: _works.isNotEmpty ? _works.first : null,
-                    isLoading: _isLoading,
-                    accent: accent,
-                    onExplore: () => context.go('/discover'),
-                    onFeaturedTap: _works.isNotEmpty
-                        ? () => context.push('/work/${_works.first.id}')
-                        : null,
-                    onFeaturedLike: _works.isNotEmpty
-                        ? () => _toggleLike(_works.first.id)
-                        : null,
-                    featuredLiked: _works.isNotEmpty &&
-                        _likedIds.contains(_works.first.id),
-                  ),
-                ),
-                SliverToBoxAdapter(child: _FeatureCards(accent: accent)),
-                SliverToBoxAdapter(
-                  child: _TrendingHeader(
-                    accent: accent,
-                    onViewAll: () => context.go('/discover'),
-                  ),
-                ),
-                if (_isLoading)
+      body: CorvusScrollToTop(
+        controller: _scrollController,
+        child: RefreshIndicator(
+          color: accent,
+          backgroundColor: AppColors.surface,
+          onRefresh: _loadFeed,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: CorvusPage.maxWidth),
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
                   SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 240,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: accent,
-                          strokeWidth: 2,
+                    child: _HeroSection(
+                      featuredWork: _works.isNotEmpty ? _works.first : null,
+                      isLoading: _isLoading,
+                      accent: accent,
+                      onExplore: () => context.go('/discover'),
+                      onFeaturedTap: _works.isNotEmpty
+                          ? () => context.push('/work/${_works.first.id}')
+                          : null,
+                      onFeaturedLike: _works.isNotEmpty
+                          ? () => _toggleLike(_works.first.id)
+                          : null,
+                      featuredLiked: _works.isNotEmpty &&
+                          _likedIds.contains(_works.first.id),
+                    ),
+                  ),
+                  SliverToBoxAdapter(child: _FeatureCards(accent: accent)),
+                  SliverToBoxAdapter(
+                    child: _TrendingHeader(
+                      accent: accent,
+                      onViewAll: () => context.go('/discover'),
+                    ),
+                  ),
+                  if (_isLoading)
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.pageGutter,
+                        0,
+                        layout.pageGutter,
+                        48,
+                      ),
+                      sliver: CorvusSkeletonGrid(
+                        crossAxisCount: columns,
+                        count: columns * 2,
+                        spacing: 14,
+                      ).asSliver(),
+                    )
+                  else if (_works.length <= 1)
+                    SliverToBoxAdapter(child: _EmptyTrending(accent: accent))
+                  else
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.pageGutter,
+                        0,
+                        layout.pageGutter,
+                        48,
+                      ),
+                      sliver: SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final workIndex = index + 1;
+                            if (workIndex >= _works.length) {
+                              return _LoadingMoreCard(accent: accent);
+                            }
+                            final work = _works[workIndex];
+                            return CorvusScrollReveal(
+                              index: index % columns,
+                              child: WorkCard(
+                                work: work,
+                                isLiked: _likedIds.contains(work.id),
+                                onLike: () => _toggleLike(work.id),
+                              ),
+                            );
+                          },
+                          childCount:
+                              (_works.length - 1) + (_isLoadingMore ? 1 : 0),
+                        ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.72,
                         ),
                       ),
                     ),
-                  )
-                else if (_works.length <= 1)
-                  SliverToBoxAdapter(child: _EmptyTrending(accent: accent))
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 48),
-                    sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final workIndex = index + 1;
-                          if (workIndex >= _works.length) {
-                            return _LoadingMoreCard(accent: accent);
-                          }
-                          final work = _works[workIndex];
-                          return WorkCard(
-                            work: work,
-                            isLiked: _likedIds.contains(work.id),
-                            onLike: () => _toggleLike(work.id),
-                          );
-                        },
-                        childCount:
-                            (_works.length - 1) + (_isLoadingMore ? 1 : 0),
+                  // El feed personal termina invitando a lo siguiente: publicar
+                  // si aún no lo has hecho, o volver a Atelier si sí.
+                  if (!_isLoading)
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(
+                        layout.pageGutter,
+                        0,
+                        layout.pageGutter,
+                        layout.sectionGap,
                       ),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: _crossAxisCount(context),
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 0.72,
-                      ),
+                      sliver: const SliverToBoxAdapter(child: CorvusCta()),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
-  }
-
-  int _crossAxisCount(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1180) return 4;
-    if (width >= 900) return 3;
-    if (width >= 560) return 2;
-    return 1;
   }
 }
 

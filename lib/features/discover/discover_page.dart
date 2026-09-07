@@ -2,10 +2,16 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_breakpoints.dart';
+import '../../core/theme/corvus_design.dart';
 import '../../models/work.dart';
 import '../../services/work_service.dart';
 import '../../shared/layout/corvus_page.dart';
+import '../../shared/widgets/corvus_cta.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
+import '../../shared/widgets/corvus_motion.dart';
+import '../../shared/widgets/corvus_scroll_to_top.dart';
+import '../../shared/widgets/corvus_skeleton.dart';
 
 const _filterDisciplines = [
   'Todas',
@@ -85,105 +91,173 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = CorvusLayout.of(context);
+    // La rejilla se decide por el ancho que le queda a cada tarjeta, no por
+    // umbrales sueltos: así una ventana de escritorio a media pantalla se
+    // comporta como la tableta que en realidad mide.
+    final columns = layout.gridColumns(target: 260, min: 1, max: 5);
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CorvusPage(
-        child: CustomScrollView(
-          slivers: [
-            _buildEditorialHero(),
-            SliverToBoxAdapter(child: _buildSearchBar()),
-            SliverToBoxAdapter(child: _buildDisciplineChips()),
-            if (_isFocused &&
-                _recentSearches.isNotEmpty &&
-                _searchQuery.isEmpty)
-              SliverToBoxAdapter(child: _buildRecentSearches()),
-            if (!_isFocused) SliverToBoxAdapter(child: _buildTrendingSection()),
-            if (!_isFocused && (_isLoading || _works.isNotEmpty))
-              SliverToBoxAdapter(child: _buildSectionLabel('ARCHIVO VIVO')),
-            if (_isLoading)
-              const SliverFillRemaining(
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                        color: AppColors.primary, strokeWidth: 2),
+      body: CorvusScrollToTop(
+        child: CorvusPage(
+          child: CustomScrollView(
+            slivers: [
+              _buildEditorialHero(layout),
+              SliverToBoxAdapter(child: _buildSearchBar()),
+              SliverToBoxAdapter(child: _buildDisciplineChips()),
+              if (_isFocused &&
+                  _recentSearches.isNotEmpty &&
+                  _searchQuery.isEmpty)
+                SliverToBoxAdapter(child: _buildRecentSearches()),
+              if (!_isFocused)
+                SliverToBoxAdapter(child: _buildTrendingSection()),
+              if (!_isFocused && (_isLoading || _works.isNotEmpty))
+                SliverToBoxAdapter(child: _buildSectionLabel('ARCHIVO VIVO')),
+              if (_isLoading)
+                // El aro girando decía "espera" y nada más. El esqueleto dice
+                // además qué forma va a tener lo que llega, así que la página
+                // no da un salto cuando llega.
+                SliverPadding(
+                  padding: const EdgeInsets.only(bottom: 100),
+                  sliver: CorvusSkeletonGrid(
+                    crossAxisCount: columns,
+                    count: columns * 2,
+                  ).asSliver(),
+                )
+              else if (_works.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Column(
+                      children: [
+                        CorvusEmptyState(
+                          icon: Icons.library_books_outlined,
+                          title: _searchQuery.isNotEmpty
+                              ? 'Sin resultados para "$_searchQuery"'
+                              : 'Todavía no hay piezas registradas',
+                          subtitle: _searchQuery.isNotEmpty
+                              ? 'Intenta con otra disciplina o término de búsqueda.'
+                              : 'Las primeras obras publicadas en esta categoría aparecerán aquí.',
+                        ),
+                        SizedBox(height: layout.sectionGap),
+                        // Una pantalla vacía es el mejor momento para invitar:
+                        // no hay nada que interrumpir y sí un hueco que llenar.
+                        const CorvusCta(),
+                      ],
+                    ),
                   ),
-                ),
-              )
-            else if (_works.isEmpty)
-              SliverFillRemaining(
-                child: CorvusEmptyState(
-                  icon: Icons.library_books_outlined,
-                  title: _searchQuery.isNotEmpty
-                      ? 'Sin resultados para "$_searchQuery"'
-                      : 'Todavía no hay piezas registradas',
-                  subtitle: _searchQuery.isNotEmpty
-                      ? 'Intenta con otra disciplina o término de búsqueda.'
-                      : 'Las primeras obras publicadas en esta categoría aparecerán aquí.',
-                ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.only(bottom: 100),
-                sliver: SliverGrid(
+                )
+              else ...[
+                SliverGrid(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _DiscoverGridTile(work: _works[index]),
+                    (context, index) => CorvusScrollReveal(
+                      index: index % columns,
+                      child: _DiscoverGridTile(work: _works[index]),
+                    ),
                     childCount: _works.length,
                   ),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: _crossAxisCount(context),
+                    crossAxisCount: columns,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     childAspectRatio: 0.72,
                   ),
                 ),
-              ),
-          ],
+                // El cierre del archivo vivo. Quien ha llegado hasta abajo ya
+                // ha visto lo que hay: es el momento con más contexto de toda
+                // la página para proponer el paso siguiente.
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      layout.sectionGap,
+                      0,
+                      layout.sectionGap,
+                    ),
+                    child: const CorvusCta(),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  SliverToBoxAdapter _buildEditorialHero() {
+  /// El titular de la portada.
+  ///
+  /// Entra por partes y en orden de lectura —versalita, título, subtítulo,
+  /// acción—, con un desfase corto entre ellas. El efecto no es decorativo:
+  /// guía la mirada por la jerarquía en el primer segundo, que es justo cuando
+  /// alguien decide si esto le interesa. Detrás, un halo del acento de la casa
+  /// activa crece una sola vez y se queda.
+  Widget _buildEditorialHero(CorvusLayout layout) {
+    final accent = Theme.of(context).colorScheme.primary;
+
     return SliverToBoxAdapter(
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: EdgeInsets.fromLTRB(0, layout.isCompact ? 16 : 28, 0, 0),
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Text(
-                'DESCUBRIR',
-                style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.70),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.8,
-                ),
+              Positioned(
+                left: -120,
+                top: -140,
+                child: _HeroGlow(accent: accent),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Arte, literatura\ny archivo vivo.',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.9,
-                  height: 1.1,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CorvusReveal(
+                    beginOffset: const Offset(0, 8),
+                    child: Text(
+                      'DESCUBRIR',
+                      style: CorvusType.eyebrow(accent),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  CorvusReveal(
+                    delay: const Duration(milliseconds: 90),
+                    beginOffset: const Offset(0, 16),
+                    child: Text(
+                      'Arte, literatura\ny archivo vivo.',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 40 * layout.displayScale,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -1.2,
+                        height: 1.06,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  CorvusReveal(
+                    delay: const Duration(milliseconds: 180),
+                    beginOffset: const Offset(0, 12),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: Text(
+                        'Piezas registradas por la comunidad, con fecha y '
+                        'autoría. Lo que entra al archivo se queda.',
+                        style: CorvusType.body.copyWith(fontSize: 14.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: CorvusSpacing.xl),
+                  CorvusReveal(
+                    delay: const Duration(milliseconds: 260),
+                    beginOffset: const Offset(0, 12),
+                    // El primero de los tres momentos en que Corvus invita:
+                    // arriba del todo, mientras se decide si quedarse.
+                    child: const CorvusCta(tone: CorvusCtaTone.inline),
+                  ),
+                  SizedBox(height: layout.sectionGap * 0.55),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Piezas registradas por la comunidad.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.38),
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -251,33 +325,13 @@ class _DiscoverPageState extends State<DiscoverPage> {
         itemBuilder: (_, i) {
           final d = _filterDisciplines[i];
           final selected = _selectedDiscipline == d;
-          return GestureDetector(
+          return _DisciplineChip(
+            label: d,
+            selected: selected,
             onTap: () {
               setState(() => _selectedDiscipline = d);
               _search();
             },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : AppColors.overlay,
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(
-                  color: selected ? AppColors.primary : AppColors.border,
-                  width: 0.5,
-                ),
-              ),
-              child: Text(
-                d,
-                style: TextStyle(
-                  color:
-                      selected ? AppColors.background : AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                ),
-              ),
-            ),
           );
         },
       ),
@@ -494,13 +548,121 @@ class _DiscoverPageState extends State<DiscoverPage> {
     if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
     return '$n';
   }
+}
 
-  int _crossAxisCount(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1180) return 4;
-    if (width >= 860) return 3;
-    if (width >= 560) return 2;
-    return 1;
+/// El halo detrás del titular.
+///
+/// Crece una sola vez al entrar y se queda quieto. Un halo que late convierte
+/// la portada en un salvapantallas y compite con el texto que tiene delante;
+/// éste solo tiene que dar la sensación de que la página está iluminada desde
+/// algún sitio.
+class _HeroGlow extends StatelessWidget {
+  final Color accent;
+
+  const _HeroGlow({required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return const SizedBox.shrink();
+
+    return IgnorePointer(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 1100),
+        curve: Curves.easeOutCubic,
+        builder: (context, value, _) => Opacity(
+          opacity: value * 0.5,
+          child: Transform.scale(
+            scale: 0.8 + 0.2 * value,
+            child: Container(
+              width: 340,
+              height: 340,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    accent.withValues(alpha: 0.20),
+                    accent.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Filtro de disciplina.
+///
+/// El estado intermedio importa tanto como los otros dos: sin señal de hover,
+/// una fila de once pastillas idénticas no parece pulsable, y en escritorio la
+/// gente no prueba a hacer clic en algo que no responde al cursor.
+class _DisciplineChip extends StatefulWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DisciplineChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  State<_DisciplineChip> createState() => _DisciplineChipState();
+}
+
+class _DisciplineChipState extends State<_DisciplineChip> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.selected;
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: CorvusPressable(
+        onTap: widget.onTap,
+        haptics: true,
+        hoverScale: 1.0,
+        hoverLift: 0,
+        pressedScale: 0.94,
+        child: AnimatedContainer(
+          duration: CorvusMotion.fast,
+          curve: CorvusMotion.standard,
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent
+                : _hovered
+                    ? CorvusSurfaces.fill(0.09)
+                    : AppColors.overlay,
+            borderRadius: BorderRadius.circular(CorvusRadius.pill),
+            border: Border.all(
+              color: selected
+                  ? accent
+                  : _hovered
+                      ? accent.withValues(alpha: 0.34)
+                      : AppColors.border,
+              width: 0.5,
+            ),
+          ),
+          child: Text(
+            widget.label,
+            style: TextStyle(
+              color: selected ? AppColors.background : AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -574,119 +736,177 @@ class _TrendingSkeleton extends StatelessWidget {
 
 // ─── Grid tile ────────────────────────────────────────────────────────────────
 
-class _DiscoverGridTile extends StatelessWidget {
+class _DiscoverGridTile extends StatefulWidget {
   final Work work;
   const _DiscoverGridTile({required this.work});
 
   @override
+  State<_DiscoverGridTile> createState() => _DiscoverGridTileState();
+}
+
+class _DiscoverGridTileState extends State<_DiscoverGridTile> {
+  bool _hovered = false;
+
+  Work get work => widget.work;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/work/${work.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          color: AppColors.card,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: CorvusPressable(
+        onTap: () => context.push('/work/${work.id}'),
+        hoverScale: 1.022,
+        hoverLift: 4,
+        pressedScale: 0.985,
+        child: AnimatedContainer(
+          duration: CorvusMotion.fast,
+          curve: CorvusMotion.standard,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(CorvusRadius.md),
+            color: AppColors.card,
+            border: Border.all(
+              color: _hovered
+                  ? accent.withValues(alpha: 0.42)
+                  : Colors.white.withValues(alpha: 0.07),
             ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: work.hasImage
-                  ? CachedNetworkImage(
-                      imageUrl: work.displayImage,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) =>
-                          Container(color: AppColors.overlay),
-                      errorWidget: (_, __, ___) =>
-                          Container(color: AppColors.overlay),
-                    )
-                  : Container(
-                      color: AppColors.overlay,
-                      child: const Center(
-                          child: Icon(Icons.image_outlined,
-                              color: AppColors.textMuted, size: 32)),
+            boxShadow: _hovered
+                ? CorvusElevation.glow(accent, strength: 0.9)
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
                     ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.85)
-                    ],
-                    stops: const [0.45, 1.0],
+                  ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: work.hasImage
+                    ? _TileImage(url: work.displayImage, zoomed: _hovered)
+                    : Container(
+                        color: AppColors.overlay,
+                        child: const Center(
+                            child: Icon(Icons.image_outlined,
+                                color: AppColors.textMuted, size: 32)),
+                      ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.85)
+                      ],
+                      stops: const [0.45, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      work.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 6)],
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            work.authorDisplayName ?? work.authorUsername ?? '',
-                            style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 10),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        work.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          shadows: [Shadow(color: Colors.black, blurRadius: 6)],
                         ),
-                        if (work.discipline.isNotEmpty)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.85),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              work.discipline,
-                              style: const TextStyle(
-                                  color: AppColors.background,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700),
+                              work.authorDisplayName ??
+                                  work.authorUsername ??
+                                  '',
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 10),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                      ],
-                    ),
-                  ],
+                          if (work.discipline.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                work.discipline,
+                                style: const TextStyle(
+                                    color: AppColors.background,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// La portada de una tarjeta.
+///
+/// Dos cosas que no se ven pero se notan. `memCacheWidth` decodifica la imagen
+/// al tamaño en que se va a pintar: una foto de 4000 px de ancho metida en una
+/// tarjeta de 260 ocupa sesenta veces más memoria de la que necesita, y en un
+/// teléfono con veinte tarjetas en pantalla eso es la diferencia entre
+/// desplazarse y arrastrarse. Y el fundido de entrada evita el parpadeo del
+/// hueco gris cuando la imagen ya venía en caché.
+class _TileImage extends StatelessWidget {
+  final String url;
+  final bool zoomed;
+
+  const _TileImage({required this.url, required this.zoomed});
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+
+    return AnimatedScale(
+      // Un acercamiento mínimo con el cursor encima: la tarjeta responde sin
+      // que la composición se mueva.
+      scale: zoomed ? 1.05 : 1,
+      duration: CorvusMotion.medium,
+      curve: CorvusMotion.standard,
+      child: CachedNetworkImage(
+        imageUrl: url,
+        fit: BoxFit.cover,
+        memCacheWidth: (420 * ratio).round(),
+        fadeInDuration: CorvusMotion.medium,
+        placeholder: (_, __) => Container(color: AppColors.overlay),
+        errorWidget: (_, __, ___) => Container(color: AppColors.overlay),
       ),
     );
   }

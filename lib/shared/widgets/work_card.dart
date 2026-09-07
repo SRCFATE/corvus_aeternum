@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/work.dart';
+import '../../core/theme/corvus_design.dart';
+import 'corvus_motion.dart';
 import 'user_avatar.dart';
 
 /// Tarjeta de obra en modo grid — imagen dominante con overlay.
-class WorkCard extends StatelessWidget {
+class WorkCard extends StatefulWidget {
   final Work work;
   final VoidCallback? onLike;
   final bool isLiked;
@@ -19,91 +21,132 @@ class WorkCard extends StatelessWidget {
   });
 
   @override
+  State<WorkCard> createState() => _WorkCardState();
+}
+
+class _WorkCardState extends State<WorkCard> {
+  bool _hovered = false;
+
+  Work get work => widget.work;
+  VoidCallback? get onLike => widget.onLike;
+  bool get isLiked => widget.isLiked;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push('/work/${work.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: AppColors.card,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.24),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
+    final accent = Theme.of(context).colorScheme.primary;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: CorvusPressable(
+        onTap: () => context.push('/work/${work.id}'),
+        hoverScale: 1.02,
+        hoverLift: 4,
+        pressedScale: 0.985,
+        child: AnimatedContainer(
+          duration: CorvusMotion.fast,
+          curve: CorvusMotion.standard,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(CorvusRadius.md),
+            color: AppColors.card,
+            border: Border.all(
+              color: _hovered
+                  ? accent.withValues(alpha: 0.40)
+                  : Colors.white.withValues(alpha: 0.07),
             ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            // Imagen de fondo
-            Positioned.fill(child: _buildImage()),
-            // Gradiente doble: sutil top + fuerte bottom
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.20),
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.88),
-                    ],
-                    stops: const [0.0, 0.25, 0.45, 1.0],
+            boxShadow: _hovered
+                ? CorvusElevation.glow(accent, strength: 0.85)
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            children: [
+              // Imagen de fondo
+              Positioned.fill(child: _buildImage(context)),
+              // Gradiente doble: sutil top + fuerte bottom
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.20),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.88),
+                      ],
+                      stops: const [0.0, 0.25, 0.45, 1.0],
+                    ),
                   ),
                 ),
               ),
-            ),
-            // Badge disciplina (top-left)
-            if (work.discipline.isNotEmpty)
+              // Badge disciplina (top-left)
+              if (work.discipline.isNotEmpty)
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: _disciplineChip(),
+                ),
+              // Badge precio (top-right)
+              if (work.isForSale && work.price != null)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: _priceChip(),
+                ),
+              // Botón like (top-right si no hay precio)
+              if (!(work.isForSale && work.price != null))
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _likeButton(),
+                ),
+              // Info overlay (bottom)
               Positioned(
-                top: 10,
-                left: 10,
-                child: _disciplineChip(),
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _bottomInfo(context),
               ),
-            // Badge precio (top-right)
-            if (work.isForSale && work.price != null)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: _priceChip(),
-              ),
-            // Botón like (top-right si no hay precio)
-            if (!(work.isForSale && work.price != null))
-              Positioned(
-                top: 8,
-                right: 8,
-                child: _likeButton(),
-              ),
-            // Info overlay (bottom)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: _bottomInfo(context),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildImage() {
-    if (work.hasImage) {
-      return CachedNetworkImage(
+  Widget _buildImage(BuildContext context) {
+    if (!work.hasImage) return _imagePlaceholder();
+
+    // `memCacheWidth` decodifica al tamaño en que se va a pintar. Sin él, una
+    // fotografía de 4000 px se descomprime entera en memoria para ocupar una
+    // tarjeta de 300: unos sesenta megabytes por imagen frente a menos de uno.
+    // Con veinte tarjetas en pantalla, ésa es la diferencia entre desplazarse
+    // y que el teléfono expulse la pestaña.
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+
+    return AnimatedScale(
+      scale: _hovered ? 1.04 : 1,
+      duration: CorvusMotion.medium,
+      curve: CorvusMotion.standard,
+      child: CachedNetworkImage(
         imageUrl: work.displayImage,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
+        memCacheWidth: (480 * ratio).round(),
+        fadeInDuration: CorvusMotion.medium,
         placeholder: (_, __) => _imagePlaceholder(),
         errorWidget: (_, __, ___) => _imagePlaceholder(),
-      );
-    }
-    return _imagePlaceholder();
+      ),
+    );
   }
 
   Widget _imagePlaceholder() {
@@ -157,8 +200,12 @@ class WorkCard extends StatelessWidget {
   }
 
   Widget _likeButton() {
-    return GestureDetector(
+    return CorvusPressable(
       onTap: onLike,
+      haptics: true,
+      hoverScale: 1.14,
+      hoverLift: 0,
+      pressedScale: 0.86,
       child: Container(
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
@@ -169,10 +216,19 @@ class WorkCard extends StatelessWidget {
             width: 0.5,
           ),
         ),
-        child: Icon(
-          isLiked ? Icons.favorite : Icons.favorite_border,
-          size: 16,
-          color: isLiked ? AppColors.accentLight : Colors.white,
+        // El corazón entra creciendo desde el centro: es la confirmación de
+        // que el gesto llegó, y llega antes que la respuesta del servidor.
+        child: AnimatedSwitcher(
+          duration: CorvusMotion.medium,
+          switchInCurve: Curves.easeOutBack,
+          transitionBuilder: (child, animation) =>
+              ScaleTransition(scale: animation, child: child),
+          child: Icon(
+            isLiked ? Icons.favorite : Icons.favorite_border,
+            key: ValueKey(isLiked),
+            size: 16,
+            color: isLiked ? AppColors.accentLight : Colors.white,
+          ),
         ),
       ),
     );

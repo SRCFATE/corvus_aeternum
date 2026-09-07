@@ -1,0 +1,71 @@
+# Cabeceras de Corvus en Cloudflare Pages.
+#
+# Dos asuntos distintos en el mismo archivo: qué se puede cachear y qué se le
+# permite hacer a la página. Se escriben juntos porque los sirve el mismo
+# fichero, pero no tienen nada que ver entre sí.
+
+/*
+  # Clickjacking: nadie mete Corvus en un iframe. `frame-ancestors` es la
+  # versión moderna de X-Frame-Options y la que respetan los navegadores
+  # actuales; se deja también la antigua por si acaso.
+  #
+  # `connect-src` es la línea que más protege: aunque alguien lograra ejecutar
+  # código en la página, no podría enviar la sesión del artista a un servidor
+  # suyo, porque el navegador solo deja hablar con Supabase y con el propio
+  # origen.
+  #
+  # `unsafe-inline` en `script-src` es la concesión: el arranque lleva un
+  # script incrustado y Pages no puede firmar un nonce por petición. Quitarlo
+  # exige mover ese script a un archivo aparte, y entonces deja de ejecutarse
+  # antes que nada, que es justo para lo que está ahí.
+  #
+  # `wasm-unsafe-eval` no es una puerta abierta pese al nombre: es el permiso
+  # que CanvasKit necesita para compilar su WebAssembly, y sin él la
+  # aplicación no arranca.
+  # fonts.gstatic.com no es opcional. El motor de Flutter descarga Roboto y
+  # las Noto de reserva en tiempo de ejecucion, con `fetch`, o sea que cae en
+  # `connect-src`. Sin este permiso la aplicacion arranca, dibuja las cajas y
+  # los iconos, y no pinta una sola letra: comprobado sirviendo el build de
+  # produccion con estas cabeceras puestas.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://qqmzeapepoxadspupmuz.supabase.co; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://qqmzeapepoxadspupmuz.supabase.co wss://qqmzeapepoxadspupmuz.supabase.co https://fonts.gstatic.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'
+  X-Frame-Options: DENY
+  # Sin esto, un archivo servido con el tipo equivocado puede acabar
+  # interpretado como HTML por el navegador.
+  X-Content-Type-Options: nosniff
+  # Al salir hacia el proveedor de pagos no viaja la ruta completa: el origen
+  # basta y la dirección de un manuscrito no es asunto de terceros.
+  Referrer-Policy: strict-origin-when-cross-origin
+  # Corvus no usa cámara, micrófono ni ubicación. Declararlo cierra la puerta
+  # a que se los pida algo incrustado.
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+
+# El HTML es el índice: siempre se revalida, porque es quien dice qué versión
+# del paquete hay que pedir. Cachearlo dejaría a la gente en una compilación
+# vieja hasta que caducara.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/flutter_bootstrap.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+# El paquete de la aplicación sí se cachea de verdad. Se pide siempre con
+# `?v=<compilación>`, y el navegador guarda por URL completa: al desplegar,
+# la dirección cambia y la copia antigua deja de usarse sola. Este es el
+# cambio que hace que la segunda visita no vuelva a descargar varios
+# megabytes.
+/main.dart.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# El motor gráfico solo cambia al cambiar de versión de Flutter. Un día de
+# caché con revalidación en segundo plano: rápido y sin quedarse atrás.
+/canvaskit/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+# Tipografías, iconos y manifiestos de recursos. Cambian con cada compilación
+# y no llevan versión en el nombre, así que se revalidan a diario en vez de
+# fijarse para siempre.
+/assets/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400

@@ -167,4 +167,80 @@ void main() {
       expect(find.text(label), findsWidgets, reason: 'falta $label en móvil');
     }
   });
+
+  // ── Navegación táctil ──────────────────────────────────────────────────
+  // Los destinos estaban arriba, en dos filas, donde el pulgar no llega sin
+  // recolocar la mano. Bajaron. Estas pruebas fijan que sigan abajo.
+
+  testWidgets('en móvil los destinos viven en la mitad inferior',
+      (tester) async {
+    await pumpShell(tester, size: const Size(420, 900));
+
+    // El criterio no es "existe", es "se alcanza": por debajo de la mitad de
+    // una pantalla de 900 px.
+    for (final label in ['Descubrir', 'Atelier', 'Colecciones']) {
+      final centro = tester.getCenter(find.text(label).last);
+      expect(centro.dy, greaterThan(450),
+          reason: '$label quedó fuera del alcance del pulgar');
+    }
+  });
+
+  testWidgets('el cajón móvil ofrece los destinos secundarios',
+      (tester) async {
+    final router = await pumpShell(tester, size: const Size(420, 900));
+
+    // Antes de abrirlo, lo secundario no está en pantalla.
+    expect(find.text('Arena Corvus'), findsNothing);
+
+    await tester.tap(find.byTooltip('Menú'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Arena Corvus'), findsOneWidget);
+    expect(find.text('Foros de autores'), findsOneWidget);
+    // Subastas no cabe entre los cinco de la barra inferior, así que el cajón
+    // es su única puerta en táctil: si desaparece de aquí, desaparece.
+    expect(find.text('Subastas'), findsWidgets);
+
+    // El último grupo queda por debajo del pliegue y la lista lo construye al
+    // llegar: hay que desplazarse hasta él, y llegar es justo lo que se
+    // comprueba.
+    await tester.scrollUntilVisible(
+      find.text('Glosario'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(Drawer),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(find.text('Glosario'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Arena Corvus'),
+      -200,
+      scrollable: find
+          .descendant(
+            of: find.byType(Drawer),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+
+    await tester.tap(find.text('Arena Corvus'));
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, '/arena');
+    // Y el cajón se cierra solo: quedarse abierto sobre el destino recién
+    // elegido obligaría a un gesto de más.
+    expect(find.text('Foros de autores'), findsNothing);
+  });
+
+  testWidgets('escritorio no duplica la navegación en un cajón',
+      (tester) async {
+    await pumpShell(tester);
+
+    expect(find.byTooltip('Menú'), findsNothing);
+    expect(find.byType(Drawer), findsNothing);
+  });
 }

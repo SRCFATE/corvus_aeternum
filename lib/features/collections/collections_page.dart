@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_design.dart';
+import '../../shared/widgets/corvus_skeleton.dart';
 import '../../models/collection.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/collection_service.dart';
@@ -169,10 +171,9 @@ class _CollectionsPageState extends State<CollectionsPage>
             ),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
+                  ? const Padding(
+                      padding: EdgeInsets.only(top: CorvusSpacing.xl),
+                      child: CorvusSkeletonList(count: 5),
                     )
                   : TabBarView(
                       controller: _tabController,

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_breakpoints.dart';
 import '../../core/theme/corvus_design.dart';
 import '../../core/router/navigation_coordinator.dart';
 import '../../models/work.dart';
@@ -19,13 +20,23 @@ import '../../shared/widgets/user_avatar.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import '../work/upload_wizard_sheet.dart';
 
-class HomeShell extends StatelessWidget {
+class HomeShell extends StatefulWidget {
   final Widget child;
 
   const HomeShell({
     super.key,
     required this.child,
   });
+
+  @override
+  State<HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends State<HomeShell> {
+  /// El cajón vive en el Scaffold del shell, y las páginas de dentro traen el
+  /// suyo propio. Sin una llave explícita, `Scaffold.of` encontraría el de la
+  /// página —que no tiene cajón— y el botón no haría nada.
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   static const _tabs = [
     '/feed', // 0 — Explorar
@@ -44,6 +55,8 @@ class HomeShell extends StatelessWidget {
     '/glossary', // 13 - Glosario creativo
     '/conspiracies', // 14 - Libro de las Conspiraciones
     '/forums', // 15 - Comunidades privadas de autores
+    '/settings/billing', // 16 - Plan de Atelier y facturación
+    '/workspaces', // 17 - Espacios de trabajo de Atelier Teams
   ];
 
   int _locationToIndex(String location) {
@@ -108,17 +121,37 @@ class HomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final selectedIndex = _locationToIndex(location);
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 720;
+    final layout = CorvusLayout.of(context);
+    final isDesktop = layout.hasFullNavigation;
+
+    void goToTab(int i) => _goTo(context, _tabs[i]);
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: AppColors.background,
+      // El cajón solo existe en táctil. En escritorio, la barra superior ya
+      // muestra todos los destinos y un cajón sería una segunda respuesta a la
+      // misma pregunta.
+      drawer: isDesktop
+          ? null
+          : _CorvusMobileDrawer(
+              selectedIndex: selectedIndex,
+              onTabSelected: goToTab,
+              onNotifications: () => _pushTo(context, '/notifications'),
+              onAdmin: () => _pushTo(context, '/admin'),
+            ),
+      bottomNavigationBar: isDesktop
+          ? null
+          : _CorvusBottomNav(
+              selectedIndex: selectedIndex,
+              onTabSelected: goToTab,
+            ),
       body: Column(
         children: [
           if (isDesktop)
             _CorvusDesktopBar(
               selectedIndex: selectedIndex,
-              onTabSelected: (i) => _goTo(context, _tabs[i]),
+              onTabSelected: goToTab,
               onUpload: () => showUploadWizard(context),
               onNotifications: () => _pushTo(context, '/notifications'),
               onAdmin: () => _pushTo(context, '/admin'),
@@ -126,14 +159,15 @@ class HomeShell extends StatelessWidget {
           else
             _CorvusMobileBar(
               selectedIndex: selectedIndex,
-              onTabSelected: (i) => _goTo(context, _tabs[i]),
+              onTabSelected: goToTab,
               onUpload: () => showUploadWizard(context),
               onNotifications: () => _pushTo(context, '/notifications'),
+              onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
             ),
           Expanded(
             child: CorvusPageTransition(
               pageKey: location,
-              child: child,
+              child: widget.child,
             ),
           ),
         ],
@@ -146,57 +180,67 @@ class HomeShell extends StatelessWidget {
 // MOBILE BAR
 // ─────────────────────────────────────────────────────────────
 
+/// Los cinco destinos que llegan al pulgar. Son los mismos cinco primeros de
+/// escritorio: quien aprende Corvus en el teléfono no tiene que reaprenderlo
+/// en el portátil. El resto vive en el cajón.
+const _mobileNavItems = [
+  _MobileNavItem(
+    index: 1,
+    label: 'Descubrir',
+    icon: Icons.explore_outlined,
+    activeIcon: Icons.explore_rounded,
+  ),
+  _MobileNavItem(
+    index: 0,
+    label: 'Explorar',
+    icon: Icons.grid_view_outlined,
+    activeIcon: Icons.grid_view_rounded,
+  ),
+  _MobileNavItem(
+    index: 6,
+    label: 'Atelier',
+    icon: Icons.auto_stories_outlined,
+    activeIcon: Icons.auto_stories_rounded,
+  ),
+  _MobileNavItem(
+    index: 5,
+    label: 'Ranking',
+    icon: Icons.military_tech_outlined,
+    activeIcon: Icons.military_tech_rounded,
+  ),
+  _MobileNavItem(
+    index: 2,
+    label: 'Colecciones',
+    icon: Icons.collections_bookmark_outlined,
+    activeIcon: Icons.collections_bookmark_rounded,
+  ),
+];
+
+/// La cabecera táctil: identidad, buscar, crear, avisos y el cajón.
+///
+/// Los destinos ya no están aquí. Estaban arriba, donde el pulgar no llega sin
+/// recolocar la mano, y ocupaban dos filas de una pantalla que se mide en
+/// filas. Ahora esta barra solo lleva acciones, y la navegación bajó.
 class _CorvusMobileBar extends StatelessWidget {
   final int selectedIndex;
   final void Function(int) onTabSelected;
   final VoidCallback onUpload;
   final VoidCallback onNotifications;
+  final VoidCallback onOpenMenu;
 
   const _CorvusMobileBar({
     required this.selectedIndex,
     required this.onTabSelected,
     required this.onUpload,
     required this.onNotifications,
+    required this.onOpenMenu,
   });
-
-  // Misma jerarquía que escritorio, recortada a cinco destinos táctiles.
-  static const _items = [
-    _MobileNavItem(
-      index: 1,
-      label: 'Descubrir',
-      icon: Icons.explore_outlined,
-      activeIcon: Icons.explore_rounded,
-    ),
-    _MobileNavItem(
-      index: 0,
-      label: 'Explorar',
-      icon: Icons.grid_view_outlined,
-      activeIcon: Icons.grid_view_rounded,
-    ),
-    _MobileNavItem(
-      index: 6,
-      label: 'Atelier',
-      icon: Icons.auto_stories_outlined,
-      activeIcon: Icons.auto_stories_rounded,
-    ),
-    _MobileNavItem(
-      index: 5,
-      label: 'Ranking',
-      icon: Icons.military_tech_outlined,
-      activeIcon: Icons.military_tech_rounded,
-    ),
-    _MobileNavItem(
-      index: 2,
-      label: 'Colecciones',
-      icon: Icons.collections_bookmark_outlined,
-      activeIcon: Icons.collections_bookmark_rounded,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
     final profile = context.watch<AuthProvider>().profile;
     final topPad = MediaQuery.of(context).padding.top;
+    final tight = MediaQuery.sizeOf(context).width < 380;
 
     return ClipRRect(
       child: BackdropFilter(
@@ -211,89 +255,466 @@ class _CorvusMobileBar extends StatelessWidget {
               ),
             ),
           ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14, topPad + 10, 12, 10),
+            child: Row(
+              children: [
+                _CircleIconButton(
+                  icon: Icons.menu_rounded,
+                  onTap: onOpenMenu,
+                  tooltip: 'Menú',
+                ),
+                const SizedBox(width: 10),
+                _BrandLogo(onTap: () => onTabSelected(1), compact: true),
+                const Spacer(),
+                // En pantallas muy estrechas el pastillón "Crear" empuja al
+                // avatar fuera de la fila. Ahí se reduce a su icono, que es lo
+                // que ya reconoce quien ha usado la app una vez.
+                if (tight)
+                  _CircleIconButton(
+                    icon: Icons.add_rounded,
+                    onTap: onUpload,
+                    tooltip: 'Crear obra',
+                    highlighted: true,
+                  )
+                else
+                  _PrimaryPillButton(label: 'Crear', onTap: onUpload),
+                const SizedBox(width: 8),
+                _CircleIconButton(
+                  icon: Icons.search_rounded,
+                  onTap: () => showGlobalSearch(context),
+                  tooltip: 'Buscar',
+                ),
+                const SizedBox(width: 8),
+                _CircleIconButton(
+                  icon: Icons.notifications_none_rounded,
+                  onTap: onNotifications,
+                  tooltip: 'Avisos',
+                ),
+                if (profile != null) ...[
+                  const SizedBox(width: 8),
+                  CorvusPressable(
+                    onTap: () => onTabSelected(3),
+                    hoverScale: 1.06,
+                    hoverLift: 0,
+                    child: UserAvatar(
+                      imageUrl: profile.avatarUrl,
+                      displayName: profile.displayName,
+                      radius: 16,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La navegación táctil, al alcance del pulgar.
+///
+/// La pastilla del destino activo se desplaza en vez de aparecer y
+/// desaparecer: el movimiento cuenta de dónde vienes, y en una barra de cinco
+/// casillas eso es la diferencia entre orientarse y adivinar.
+class _CorvusBottomNav extends StatelessWidget {
+  final int selectedIndex;
+  final void Function(int) onTabSelected;
+
+  const _CorvusBottomNav({
+    required this.selectedIndex,
+    required this.onTabSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.watch<ConspirationProvider>().accent;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.background.withValues(alpha: 0.92),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 1,
+              ),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: 8,
+                // La barra de gestos del sistema ya deja su hueco; sin ella
+                // hace falta uno propio o los iconos quedan pegados al borde.
+                bottom: bottomPad > 0 ? 4 : 8,
+              ),
+              child: Row(
+                children: [
+                  for (final item in _mobileNavItems)
+                    Expanded(
+                      child: _BottomNavTile(
+                        item: item,
+                        selected: selectedIndex == item.index,
+                        accent: accent,
+                        onTap: () => onTabSelected(item.index),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavTile extends StatelessWidget {
+  final _MobileNavItem item;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _BottomNavTile({
+    required this.item,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? accent : AppColors.textMuted;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: item.label,
+      child: CorvusPressable(
+        onTap: onTap,
+        haptics: true,
+        hoverScale: 1.0,
+        hoverLift: 0,
+        pressedScale: 0.9,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(16, topPad + 12, 14, 10),
-                child: Row(
-                  children: [
-                    _BrandLogo(onTap: () => onTabSelected(0), compact: true),
-                    const Spacer(),
-                    _PrimaryPillButton(label: 'Crear', onTap: onUpload),
-                    const SizedBox(width: 8),
-                    _SpacesMenuButton(
-                      selectedIndex: selectedIndex,
-                      onTabSelected: onTabSelected,
-                    ),
-                    const SizedBox(width: 8),
-                    _CircleIconButton(
-                      icon: Icons.notifications_outlined,
-                      onTap: onNotifications,
-                    ),
-                    if (profile != null) ...[
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => onTabSelected(3),
-                        child: UserAvatar(
-                          imageUrl: profile.avatarUrl,
-                          displayName: profile.displayName,
-                          radius: 16,
-                        ),
-                      ),
-                    ],
-                  ],
+              AnimatedContainer(
+                duration: CorvusMotion.medium,
+                curve: CorvusMotion.standard,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accent.withValues(alpha: 0.16)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(CorvusRadius.pill),
+                ),
+                child: Icon(
+                  selected ? item.activeIcon : item.icon,
+                  color: color,
+                  size: 21,
                 ),
               ),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      width: 1,
-                    ),
-                  ),
+              const SizedBox(height: 3),
+              AnimatedDefaultTextStyle(
+                duration: CorvusMotion.fast,
+                curve: CorvusMotion.standard,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  letterSpacing: 0.1,
                 ),
-                child: Row(
-                  children: List.generate(_items.length, (i) {
-                    final item = _items[i];
-                    final selected = selectedIndex == item.index;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => onTabSelected(item.index),
-                        behavior: HitTestBehavior.opaque,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                selected ? item.activeIcon : item.icon,
-                                color: selected
-                                    ? Colors.white
-                                    : AppColors.textMuted,
-                                size: 20,
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                item.label,
-                                style: TextStyle(
-                                  color: selected
-                                      ? Colors.white
-                                      : AppColors.textMuted,
-                                  fontSize: 10,
-                                  fontWeight: selected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Todo lo demás, en un cajón.
+///
+/// Es el equivalente táctil del menú "Más" de escritorio y se alimenta de la
+/// misma lista, `_moreGroups`: añadir un destino secundario allí lo hace
+/// aparecer en los dos sitios, que es la única forma de que no se separen.
+class _CorvusMobileDrawer extends StatelessWidget {
+  final int selectedIndex;
+  final void Function(int) onTabSelected;
+  final VoidCallback onNotifications;
+  final VoidCallback onAdmin;
+
+  const _CorvusMobileDrawer({
+    required this.selectedIndex,
+    required this.onTabSelected,
+    required this.onNotifications,
+    required this.onAdmin,
+  });
+
+  void _select(BuildContext context, VoidCallback action) {
+    Navigator.of(context).pop();
+    action();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = context.watch<AuthProvider>().profile;
+    final accent = context.watch<ConspirationProvider>().accent;
+
+    return Drawer(
+      backgroundColor: AppColors.background,
+      width: (MediaQuery.sizeOf(context).width * 0.86).clamp(280.0, 360.0),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(
+          right: Radius.circular(CorvusRadius.xl),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                CorvusSpacing.lg,
+                CorvusSpacing.lg,
+                CorvusSpacing.lg,
+                CorvusSpacing.md,
+              ),
+              child: profile == null
+                  ? _DrawerVisitorHeader(
+                      accent: accent,
+                      onTap: () => _select(
+                        context,
+                        () => GoRouter.of(context).go('/login'),
+                      ),
+                    )
+                  : CorvusPressable(
+                      onTap: () => _select(context, () => onTabSelected(3)),
+                      hoverScale: 1.0,
+                      hoverLift: 0,
+                      child: Row(
+                        children: [
+                          UserAvatar(
+                            imageUrl: profile.avatarUrl,
+                            displayName: profile.displayName,
+                            radius: 22,
                           ),
+                          const SizedBox(width: CorvusSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  profile.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: CorvusType.subtitle,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '@${profile.username}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: CorvusType.muted,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 18,
+                            color: AppColors.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: CorvusSpacing.md,
+                  vertical: CorvusSpacing.md,
+                ),
+                children: [
+                  // Los cinco de la barra inferior también viven aquí: quien
+                  // abre el cajón buscando "Descubrir" no debería encontrar un
+                  // hueco donde espera un destino.
+                  for (final item in _mobileNavItems)
+                    _DrawerTile(
+                      label: item.label,
+                      icon: item.icon,
+                      accent: accent,
+                      selected: selectedIndex == item.index,
+                      onTap: () => _select(
+                        context,
+                        () => onTabSelected(item.index),
+                      ),
+                    ),
+                  _DrawerTile(
+                    label: 'Subastas',
+                    icon: Icons.gavel_rounded,
+                    accent: accent,
+                    selected: selectedIndex == 4,
+                    onTap: () => _select(context, () => onTabSelected(4)),
+                  ),
+                  for (final group in _moreGroups) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        CorvusSpacing.md,
+                        CorvusSpacing.lg,
+                        CorvusSpacing.md,
+                        CorvusSpacing.sm,
+                      ),
+                      child: Text(
+                        group.title.toUpperCase(),
+                        style: CorvusType.eyebrow(Colors.white, alpha: 0.34),
+                      ),
+                    ),
+                    for (final entry in group.entries)
+                      _DrawerTile(
+                        label: entry.label,
+                        icon: entry.icon,
+                        accent: accent,
+                        selected: selectedIndex == entry.index,
+                        onTap: () => _select(
+                          context,
+                          () => onTabSelected(entry.index),
                         ),
                       ),
-                    );
-                  }),
+                  ],
+                  if (profile?.isAdmin == true) ...[
+                    const SizedBox(height: CorvusSpacing.lg),
+                    _DrawerTile(
+                      label: 'Panel de administración',
+                      icon: Icons.shield_outlined,
+                      accent: accent,
+                      selected: false,
+                      onTap: () => _select(context, onAdmin),
+                    ),
+                  ],
+                  const SizedBox(height: CorvusSpacing.xl),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerVisitorHeader extends StatelessWidget {
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _DrawerVisitorHeader({required this.accent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return CorvusPressable(
+      onTap: onTap,
+      hoverScale: 1.01,
+      hoverLift: 1,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(CorvusSpacing.lg),
+        decoration: BoxDecoration(
+          gradient: CorvusSurfaces.accentWash(accent, strength: 0.7),
+          borderRadius: BorderRadius.circular(CorvusRadius.lg),
+          border: Border.all(color: accent.withValues(alpha: 0.22)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('EL ARCHIVO TE ESPERA', style: CorvusType.eyebrow(accent)),
+            const SizedBox(height: CorvusSpacing.sm),
+            Text('Entra o crea tu cuenta', style: CorvusType.subtitle),
+            const SizedBox(height: CorvusSpacing.xs),
+            Text(
+              'Para publicar, guardar y seguir a otros artistas.',
+              style: CorvusType.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerTile extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DrawerTile({
+    required this.label,
+    required this.icon,
+    required this.accent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: CorvusPressable(
+        onTap: onTap,
+        haptics: true,
+        hoverScale: 1.0,
+        hoverLift: 0,
+        pressedScale: 0.985,
+        child: AnimatedContainer(
+          duration: CorvusMotion.fast,
+          curve: CorvusMotion.standard,
+          padding: const EdgeInsets.symmetric(
+            horizontal: CorvusSpacing.md,
+            vertical: 13,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: 0.14)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(CorvusRadius.md),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 19,
+                color: selected ? accent : AppColors.textSecondary,
+              ),
+              const SizedBox(width: CorvusSpacing.md),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -536,6 +957,12 @@ const _moreGroups = <_MoreGroup>[
         hint: 'Desafíos y duelos creativos',
         icon: Icons.emoji_events_outlined,
       ),
+      _MoreEntry(
+        index: 17,
+        label: 'Espacios de trabajo',
+        hint: 'Estudios, editoriales y equipos',
+        icon: Icons.workspaces_outlined,
+      ),
     ],
   ),
   _MoreGroup(
@@ -558,6 +985,12 @@ const _moreGroups = <_MoreGroup>[
         label: 'Pulso creativo',
         hint: 'Ritmo, alcance y evolución',
         icon: Icons.insights_outlined,
+      ),
+      _MoreEntry(
+        index: 16,
+        label: 'Plan y facturación',
+        hint: 'Tu plan de Atelier, uso y pagos',
+        icon: Icons.workspace_premium_outlined,
       ),
     ],
   ),
@@ -1136,15 +1569,22 @@ class _BrandLogo extends StatelessWidget {
   }
 }
 
+/// Los botones redondos de la barra: buscar, avisos, menú, admin.
+///
+/// Llevan `tooltip` porque son solo un icono. Un icono sin nombre es una
+/// adivinanza para quien llega por primera vez y, en escritorio, un muro para
+/// quien navega con lector de pantalla.
 class _CircleIconButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool highlighted;
+  final String? tooltip;
 
   const _CircleIconButton({
     required this.icon,
     required this.onTap,
     this.highlighted = false,
+    this.tooltip,
   });
 
   @override
@@ -1157,17 +1597,21 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
   @override
   Widget build(BuildContext context) {
     final bgColor = widget.highlighted
-        ? AppColors.primary.withValues(alpha: 0.18)
+        ? AppColors.primary.withValues(alpha: hovered ? 0.26 : 0.18)
         : Colors.white.withValues(alpha: hovered ? 0.08 : 0.045);
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
+    Widget button = MouseRegion(
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
-      child: GestureDetector(
+      child: CorvusPressable(
         onTap: widget.onTap,
+        haptics: true,
+        hoverScale: 1.0,
+        hoverLift: 0,
+        pressedScale: 0.92,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: CorvusMotion.fast,
+          curve: CorvusMotion.standard,
           width: 42,
           height: 42,
           decoration: BoxDecoration(
@@ -1190,9 +1634,21 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
         ),
       ),
     );
+
+    if (widget.tooltip != null) {
+      button = Tooltip(
+        message: widget.tooltip!,
+        waitDuration: const Duration(milliseconds: 420),
+        child: Semantics(button: true, label: widget.tooltip, child: button),
+      );
+    }
+
+    return button;
   }
 }
 
+/// El botón de crear. Es la acción principal de toda la aplicación, así que es
+/// el único elemento de la barra que se pinta con el acento sólido.
 class _PrimaryPillButton extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
@@ -1214,43 +1670,43 @@ class _PrimaryPillButtonState extends State<_PrimaryPillButton> {
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
-      child: GestureDetector(
+      child: CorvusPressable(
         onTap: widget.onTap,
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 160),
-          scale: hovered ? 1.035 : 1,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.large ? 20 : 15,
-              vertical: widget.large ? 13 : 9,
-            ),
-            decoration: BoxDecoration(
-              color: hovered
-                  ? AppColors.primary.withValues(alpha: 0.95)
-                  : AppColors.primary,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: hovered
-                  ? [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.28),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Text(
-              widget.label,
-              style: const TextStyle(
-                color: AppColors.background,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.1,
-              ),
+        haptics: true,
+        hoverScale: 1.035,
+        hoverLift: 1,
+        pressedScale: 0.955,
+        child: AnimatedContainer(
+          duration: CorvusMotion.fast,
+          curve: CorvusMotion.standard,
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.large ? 20 : 15,
+            vertical: widget.large ? 13 : 9,
+          ),
+          decoration: BoxDecoration(
+            color: hovered
+                ? AppColors.primary.withValues(alpha: 0.95)
+                : AppColors.primary,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: hovered
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.28),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            widget.label,
+            style: const TextStyle(
+              color: AppColors.background,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.1,
             ),
           ),
         ),

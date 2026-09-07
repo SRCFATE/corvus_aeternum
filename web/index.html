@@ -1,29 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=5.0"
+    content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover"
   >
   <meta
     name="description"
@@ -31,61 +15,205 @@
   >
   <meta name="theme-color" content="#09090C">
 
+  <!--
+    Las conexiones que la aplicación abre en cuanto arranca. Declararlas aquí
+    adelanta el DNS y el saludo TLS de Supabase mientras todavía se está
+    descargando el paquete de Flutter: cuando el primer `select` sale, el
+    túnel ya está abierto, y eso son entre cien y trescientos milisegundos que
+    no se pagan delante de una pantalla vacía.
+  -->
+  <link rel="preconnect" href="https://qqmzeapepoxadspupmuz.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://qqmzeapepoxadspupmuz.supabase.co">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Corvus Aeternum">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Corvus Aeternum</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #09090C;
+      /* El fondo del documento importa: mientras carga el motor, lo que se ve
+         es esto, y un blanco por defecto sobre un tema oscuro es un fogonazo. */
+      color-scheme: dark;
+    }
+
+    /* ── Pantalla de arranque ────────────────────────────────────────────
+       Una aplicación Flutter en web tarda en pintar su primer fotograma:
+       hay que descargar el paquete, arrancar el motor y montar el árbol.
+       Sin esto, ese tiempo es una página negra, indistinguible de una que
+       no carga. Va incrustada en el HTML —nada de hojas ni fuentes
+       externas— para que aparezca en el primer fotograma del navegador. */
+    #corvus-boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 26px;
+      background: radial-gradient(
+        circle at 50% 38%,
+        #16121b 0%,
+        #09090C 62%
+      );
+      z-index: 9999;
+      transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    #corvus-boot.corvus-boot-done {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .corvus-boot-mark {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #F0EEE6;
+      opacity: 0.92;
+      animation: corvus-breathe 2600ms ease-in-out infinite;
+    }
+
+    .corvus-boot-sub {
+      font-size: 11px;
+      letter-spacing: 2.6px;
+      font-weight: 700;
+      color: rgba(240, 238, 230, 0.30);
+    }
+
+    /* Barra indeterminada en vez de porcentaje: no sabemos cuánto falta, y
+       fingir una cifra es peor que no darla. */
+    .corvus-boot-rail {
+      position: relative;
+      width: 148px;
+      height: 2px;
+      border-radius: 2px;
+      overflow: hidden;
+      background: rgba(240, 238, 230, 0.08);
+    }
+
+    .corvus-boot-rail::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: 40%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, transparent, #CC3333, transparent);
+      animation: corvus-sweep 1500ms cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+
+    @keyframes corvus-sweep {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    @keyframes corvus-breathe {
+      0%, 100% { opacity: 0.92; }
+      50%      { opacity: 0.55; }
+    }
+
+    /* Quien pide menos movimiento recibe la marca quieta. La pantalla sigue
+       diciendo lo mismo; solo deja de moverse. */
+    @media (prefers-reduced-motion: reduce) {
+      .corvus-boot-mark,
+      .corvus-boot-rail::after {
+        animation: none;
+      }
+      .corvus-boot-rail::after {
+        width: 100%;
+        background: rgba(204, 51, 51, 0.55);
+      }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <div id="corvus-boot" role="status" aria-live="polite">
+    <div class="corvus-boot-mark">CORVVS AETERNVM</div>
+    <div class="corvus-boot-rail"></div>
+    <div class="corvus-boot-sub">ABRIENDO EL ARCHIVO</div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
   <script>
-    // Corvus se actualiza con frecuencia durante su desarrollo. El arranque
-    // limpia el antiguo cache PWA antes de cargar la compilacion vigente.
+    // El arranque de Corvus.
+    //
+    // Antes esto borraba TODAS las cachés y desregistraba TODOS los service
+    // workers en cada carga, y además cargaba el bootstrap con `?v=Date.now()`.
+    // El efecto era que la segunda visita costaba exactamente lo mismo que la
+    // primera —varios megabytes de motor y aplicación, siempre de red— y que
+    // la primera pagaba encima una recarga completa. Era una desinfección
+    // pensada para el desarrollo, aplicada en producción a cada persona que
+    // abría la página.
+    //
+    // Ahora la limpieza ocurre **una vez por compilación**: si la versión
+    // guardada coincide con la vigente, no se toca nada y el navegador sirve
+    // el paquete que ya tiene.
     (async () => {
-      const cacheVersion = 'corvus-web-20260822-private-author-forums';
-      const wasControlled =
-        'serviceWorker' in navigator && navigator.serviceWorker.controller;
+      const cacheVersion = 'corvus-web-20260907-experiencia';
+      const versionKey = 'corvus-build';
 
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((entry) => entry.unregister()));
-      }
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-      }
+      const boot = () => {
+        const bootstrap = document.createElement('script');
+        // El paquete lleva la versión en la URL, así que se puede cachear de
+        // verdad: cambia de nombre cuando cambia el contenido.
+        bootstrap.src = `flutter_bootstrap.js?v=${cacheVersion}`;
+        bootstrap.async = true;
+        document.body.appendChild(bootstrap);
+      };
 
-      // Un worker desregistrado conserva el control de la pagina actual.
-      // Una unica recarga entrega el control al paquete vigente.
-      if (
-        wasControlled &&
-        sessionStorage.getItem('corvus-cache-reset') !== cacheVersion
-      ) {
-        sessionStorage.setItem('corvus-cache-reset', cacheVersion);
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('_corvus_build', cacheVersion);
-        window.location.replace(currentUrl.toString());
+      let previous = null;
+      try {
+        previous = window.localStorage.getItem(versionKey);
+      } catch (_) {
+        // Modo privado o almacenamiento bloqueado: se arranca sin limpiar.
+        boot();
         return;
       }
 
-      const bootstrap = document.createElement('script');
-      bootstrap.src = `flutter_bootstrap.js?v=${Date.now()}`;
-      bootstrap.async = true;
-      document.body.appendChild(bootstrap);
+      if (previous === cacheVersion) {
+        boot();
+        return;
+      }
+
+      // Compilación nueva: se retira lo que quedara de la anterior.
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((entry) => entry.unregister()));
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+      } catch (error) {
+        console.warn('No se pudo limpiar la caché anterior:', error);
+      }
+
+      try {
+        window.localStorage.setItem(versionKey, cacheVersion);
+      } catch (_) {
+        // Si no se puede recordar, se limpiará otra vez. Molesto, no roto.
+      }
+
+      // Un worker desregistrado conserva el control de la página actual, así
+      // que hace falta una recarga —y solo una, la primera vez que se ve esta
+      // compilación— para que mande el paquete vigente.
+      if (previous !== null && navigator.serviceWorker?.controller) {
+        window.location.reload();
+        return;
+      }
+
+      boot();
     })();
   </script>
 </body>

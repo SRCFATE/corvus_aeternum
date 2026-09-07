@@ -12,10 +12,20 @@ import '../../providers/conspiration_provider.dart';
 import '../../services/profile_service.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
+import '../../shared/widgets/corvus_skeleton.dart';
 
 const _disciplines = [
-  'Todas', 'Pintura', 'Fotografía', 'Ilustración', 'Arte Digital',
-  'Escultura', 'Música', 'Literatura', 'Cine', 'Diseño', 'Grabado',
+  'Todas',
+  'Pintura',
+  'Fotografía',
+  'Ilustración',
+  'Arte Digital',
+  'Escultura',
+  'Música',
+  'Literatura',
+  'Cine',
+  'Diseño',
+  'Grabado',
 ];
 
 class ArtistsPage extends StatefulWidget {
@@ -71,7 +81,12 @@ class _ArtistsPageState extends State<ArtistsPage>
       query: _query.isEmpty ? null : _query,
       discipline: _discipline == 'Todas' ? null : _discipline,
     );
-    if (mounted) setState(() { _artists = results; _isLoading = false; });
+    if (mounted) {
+      setState(() {
+        _artists = results;
+        _isLoading = false;
+      });
+    }
   }
 
   void _onQueryChanged(String value) {
@@ -105,7 +120,10 @@ class _ArtistsPageState extends State<ArtistsPage>
     _searchAnim.reverse().then((_) {
       if (mounted) {
         _searchController.clear();
-        setState(() { _searchOpen = false; _query = ''; });
+        setState(() {
+          _searchOpen = false;
+          _query = '';
+        });
         _load();
       }
     });
@@ -129,44 +147,50 @@ class _ArtistsPageState extends State<ArtistsPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          _Header(
-            searchOpen: _searchOpen,
-            searchController: _searchController,
-            searchFocus: _searchFocus,
-            searchAnim: _searchWidth,
-            accent: accent,
-            onOpenSearch: _openSearch,
-            onCloseSearch: _closeSearch,
-            onQueryChanged: _onQueryChanged,
-            onSubmitSearch: _submitSearch,
-          ),
-          if (!_searchOpen)
-            _DisciplineChips(
-              selected: _discipline,
+            _Header(
+              searchOpen: _searchOpen,
+              searchController: _searchController,
+              searchFocus: _searchFocus,
+              searchAnim: _searchWidth,
               accent: accent,
-              onSelect: (d) { setState(() => _discipline = d); _load(); },
+              onOpenSearch: _openSearch,
+              onCloseSearch: _closeSearch,
+              onQueryChanged: _onQueryChanged,
+              onSubmitSearch: _submitSearch,
             ),
-          Expanded(
-            child: Stack(
-              children: [
-                _ArtistsList(
-                  artists: _artists,
-                  isLoading: _isLoading,
-                  accent: accent,
-                  columns: _columns(width),
-                  isWide: width >= 720,
-                ),
-                if (_searchOpen && _query.isEmpty && _recentSearches.isNotEmpty)
-                  _RecentSearchesOverlay(
-                    recents: _recentSearches,
-                    onSelect: _selectRecent,
-                    onRemove: (q) => setState(() => _recentSearches.remove(q)),
-                    onClearAll: () => setState(() => _recentSearches.clear()),
+            if (!_searchOpen)
+              _DisciplineChips(
+                selected: _discipline,
+                accent: accent,
+                onSelect: (d) {
+                  setState(() => _discipline = d);
+                  _load();
+                },
+              ),
+            Expanded(
+              child: Stack(
+                children: [
+                  _ArtistsList(
+                    artists: _artists,
+                    isLoading: _isLoading,
+                    accent: accent,
+                    columns: _columns(width),
+                    isWide: width >= 720,
                   ),
-              ],
+                  if (_searchOpen &&
+                      _query.isEmpty &&
+                      _recentSearches.isNotEmpty)
+                    _RecentSearchesOverlay(
+                      recents: _recentSearches,
+                      onSelect: _selectRecent,
+                      onRemove: (q) =>
+                          setState(() => _recentSearches.remove(q)),
+                      onClearAll: () => setState(() => _recentSearches.clear()),
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -196,10 +220,14 @@ class _Header extends StatelessWidget {
   final ValueChanged<String> onSubmitSearch;
 
   const _Header({
-    required this.searchOpen, required this.searchController,
-    required this.searchFocus, required this.searchAnim,
-    required this.accent, required this.onOpenSearch,
-    required this.onCloseSearch, required this.onQueryChanged,
+    required this.searchOpen,
+    required this.searchController,
+    required this.searchFocus,
+    required this.searchAnim,
+    required this.accent,
+    required this.onOpenSearch,
+    required this.onCloseSearch,
+    required this.onQueryChanged,
     required this.onSubmitSearch,
   });
 
@@ -259,9 +287,14 @@ class _SearchBar extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
 
   const _SearchBar({
-    required this.searchOpen, required this.controller, required this.focusNode,
-    required this.accent, required this.onOpen, required this.onClose,
-    required this.onChanged, required this.onSubmitted,
+    required this.searchOpen,
+    required this.controller,
+    required this.focusNode,
+    required this.accent,
+    required this.onOpen,
+    required this.onClose,
+    required this.onChanged,
+    required this.onSubmitted,
   });
 
   @override
@@ -272,13 +305,15 @@ class _SearchBar extends StatelessWidget {
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(
-            width: 46, height: 46,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.055),
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: const Icon(Icons.search_rounded, color: AppColors.textSecondary, size: 20),
+            child: const Icon(Icons.search_rounded,
+                color: AppColors.textSecondary, size: 20),
           ),
         ),
       );
@@ -291,7 +326,12 @@ class _SearchBar extends StatelessWidget {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(color: accent.withValues(alpha: 0.35)),
-          boxShadow: [BoxShadow(color: accent.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+                color: accent.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4))
+          ],
         ),
         child: Row(
           children: [
@@ -304,10 +344,15 @@ class _SearchBar extends StatelessWidget {
                 focusNode: focusNode,
                 onChanged: onChanged,
                 onSubmitted: onSubmitted,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500),
                 decoration: InputDecoration(
                   hintText: 'Buscar artistas...',
-                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.32), fontSize: 15),
+                  hintStyle: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.32),
+                      fontSize: 15),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
@@ -318,20 +363,28 @@ class _SearchBar extends StatelessWidget {
             ),
             if (controller.text.isNotEmpty)
               GestureDetector(
-                onTap: () { controller.clear(); onChanged(''); },
+                onTap: () {
+                  controller.clear();
+                  onChanged('');
+                },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Icon(Icons.close_rounded, size: 16, color: Colors.white.withValues(alpha: 0.45)),
+                  child: Icon(Icons.close_rounded,
+                      size: 16, color: Colors.white.withValues(alpha: 0.45)),
                 ),
               ),
             GestureDetector(
               onTap: onClose,
               child: Container(
-                width: 46, height: 46,
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  border: Border(left: BorderSide(color: Colors.white.withValues(alpha: 0.07))),
+                  border: Border(
+                      left: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.07))),
                 ),
-                child: Icon(Icons.keyboard_return_rounded, size: 17, color: Colors.white.withValues(alpha: 0.45)),
+                child: Icon(Icons.keyboard_return_rounded,
+                    size: 17, color: Colors.white.withValues(alpha: 0.45)),
               ),
             ),
           ],
@@ -350,7 +403,8 @@ class _DisciplineChips extends StatelessWidget {
   final Color accent;
   final ValueChanged<String> onSelect;
 
-  const _DisciplineChips({required this.selected, required this.accent, required this.onSelect});
+  const _DisciplineChips(
+      {required this.selected, required this.accent, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -372,12 +426,15 @@ class _DisciplineChips extends StatelessWidget {
               decoration: BoxDecoration(
                 color: sel ? accent : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(99),
-                border: Border.all(color: sel ? accent : Colors.white.withValues(alpha: 0.09)),
+                border: Border.all(
+                    color: sel ? accent : Colors.white.withValues(alpha: 0.09)),
               ),
               child: Text(
                 d,
                 style: TextStyle(
-                  color: sel ? AppColors.background : Colors.white.withValues(alpha: 0.6),
+                  color: sel
+                      ? AppColors.background
+                      : Colors.white.withValues(alpha: 0.6),
                   fontSize: 12,
                   fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
                 ),
@@ -401,21 +458,30 @@ class _RecentSearchesOverlay extends StatelessWidget {
   final VoidCallback onClearAll;
 
   const _RecentSearchesOverlay({
-    required this.recents, required this.onSelect,
-    required this.onRemove, required this.onClearAll,
+    required this.recents,
+    required this.onSelect,
+    required this.onRemove,
+    required this.onClearAll,
   });
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: 0, left: 0, right: 0,
+      top: 0,
+      left: 0,
+      right: 0,
       child: Container(
         margin: const EdgeInsets.fromLTRB(0, 8, 0, 0),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 8))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 24,
+                offset: const Offset(0, 8))
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -424,19 +490,31 @@ class _RecentSearchesOverlay extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(18, 14, 14, 8),
               child: Row(
                 children: [
-                  Icon(Icons.history_rounded, size: 14, color: Colors.white.withValues(alpha: 0.38)),
+                  Icon(Icons.history_rounded,
+                      size: 14, color: Colors.white.withValues(alpha: 0.38)),
                   const SizedBox(width: 7),
-                  Text('Búsquedas recientes', style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 11, fontWeight: FontWeight.w700)),
+                  Text('Búsquedas recientes',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.38),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
                   const Spacer(),
                   GestureDetector(
                     onTap: onClearAll,
-                    child: Text('Borrar todo', style: TextStyle(color: Colors.white.withValues(alpha: 0.30), fontSize: 11, fontWeight: FontWeight.w600)),
+                    child: Text('Borrar todo',
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.30),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),
             ),
             const Divider(height: 1, color: Colors.white10),
-            ...recents.map((q) => _RecentItem(query: q, onSelect: () => onSelect(q), onRemove: () => onRemove(q))),
+            ...recents.map((q) => _RecentItem(
+                query: q,
+                onSelect: () => onSelect(q),
+                onRemove: () => onRemove(q))),
             const SizedBox(height: 6),
           ],
         ),
@@ -449,7 +527,8 @@ class _RecentItem extends StatefulWidget {
   final String query;
   final VoidCallback onSelect;
   final VoidCallback onRemove;
-  const _RecentItem({required this.query, required this.onSelect, required this.onRemove});
+  const _RecentItem(
+      {required this.query, required this.onSelect, required this.onRemove});
   @override
   State<_RecentItem> createState() => _RecentItemState();
 }
@@ -467,17 +546,28 @@ class _RecentItemState extends State<_RecentItem> {
         onTap: widget.onSelect,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
-          color: _hovered ? Colors.white.withValues(alpha: 0.04) : Colors.transparent,
+          color: _hovered
+              ? Colors.white.withValues(alpha: 0.04)
+              : Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
           child: Row(
             children: [
-              Icon(Icons.north_west_rounded, size: 13, color: Colors.white.withValues(alpha: 0.28)),
+              Icon(Icons.north_west_rounded,
+                  size: 13, color: Colors.white.withValues(alpha: 0.28)),
               const SizedBox(width: 12),
-              Expanded(child: Text(widget.query, style: TextStyle(color: Colors.white.withValues(alpha: 0.78), fontSize: 14, fontWeight: FontWeight.w500))),
+              Expanded(
+                  child: Text(widget.query,
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500))),
               GestureDetector(
                 onTap: widget.onRemove,
                 behavior: HitTestBehavior.opaque,
-                child: Padding(padding: const EdgeInsets.all(4), child: Icon(Icons.close_rounded, size: 15, color: Colors.white.withValues(alpha: 0.25))),
+                child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(Icons.close_rounded,
+                        size: 15, color: Colors.white.withValues(alpha: 0.25))),
               ),
             ],
           ),
@@ -499,21 +589,31 @@ class _ArtistsList extends StatelessWidget {
   final bool isWide;
 
   const _ArtistsList({
-    required this.artists, required this.isLoading,
-    required this.accent, required this.columns, required this.isWide,
+    required this.artists,
+    required this.isLoading,
+    required this.accent,
+    required this.columns,
+    required this.isWide,
   });
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Center(child: CircularProgressIndicator(color: accent, strokeWidth: 2));
+      // El esqueleto ya dibuja la rejilla que viene, con sus columnas: la
+      // pagina no se recoloca cuando llegan los artistas.
+      return CorvusSkeletonGrid(
+        crossAxisCount: columns,
+        count: columns * 2,
+        childAspectRatio: isWide ? 0.78 : 0.72,
+      );
     }
 
     if (artists.isEmpty) {
       return const CorvusEmptyState(
         icon: Icons.person_search_rounded,
         title: 'Ningún artista registrado',
-        subtitle: 'Los artistas que publiquen su primera obra\naparecerán en el archivo.',
+        subtitle:
+            'Los artistas que publiquen su primera obra\naparecerán en el archivo.',
       );
     }
 
@@ -546,7 +646,7 @@ class _ArtistCard extends StatefulWidget {
 class _ArtistCardState extends State<_ArtistCard> {
   final _service = ProfileService();
   bool _hovered = false;
-  bool? _following;   // null = cargando
+  bool? _following; // null = cargando
   bool _followBusy = false;
 
   String? get _myId => supabase.auth.currentUser?.id;
@@ -572,10 +672,20 @@ class _ArtistCardState extends State<_ArtistCard> {
     try {
       if (_following == true) {
         await _service.unfollow(uid, widget.artist.id);
-        if (mounted) setState(() { _following = false; _followBusy = false; });
+        if (mounted) {
+          setState(() {
+            _following = false;
+            _followBusy = false;
+          });
+        }
       } else {
         await _service.follow(uid, widget.artist.id);
-        if (mounted) setState(() { _following = true; _followBusy = false; });
+        if (mounted) {
+          setState(() {
+            _following = true;
+            _followBusy = false;
+          });
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _followBusy = false);
@@ -604,17 +714,30 @@ class _ArtistCardState extends State<_ArtistCard> {
             color: AppColors.card,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: _hovered ? accent.withValues(alpha: 0.30) : Colors.white.withValues(alpha: 0.07),
+              color: _hovered
+                  ? accent.withValues(alpha: 0.30)
+                  : Colors.white.withValues(alpha: 0.07),
             ),
-            boxShadow: _hovered ? [BoxShadow(color: accent.withValues(alpha: 0.10), blurRadius: 28, offset: const Offset(0, 12))] : [],
+            boxShadow: _hovered
+                ? [
+                    BoxShadow(
+                        color: accent.withValues(alpha: 0.10),
+                        blurRadius: 28,
+                        offset: const Offset(0, 12))
+                  ]
+                : [],
           ),
           child: Stack(
             children: [
               // Banner
               Positioned(
-                top: 0, left: 0, right: 0, height: 72,
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 72,
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(20)),
                   child: a.bannerUrl != null
                       ? CachedNetworkImage(
                           imageUrl: a.bannerUrl!,
@@ -646,16 +769,24 @@ class _ArtistCardState extends State<_ArtistCard> {
                         // Verified
                         if (a.isArtistVerified)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: accent.withValues(alpha: 0.13),
                               borderRadius: BorderRadius.circular(99),
-                              border: Border.all(color: accent.withValues(alpha: 0.28)),
+                              border: Border.all(
+                                  color: accent.withValues(alpha: 0.28)),
                             ),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.verified_rounded, size: 11, color: accent),
+                            child:
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.verified_rounded,
+                                  size: 11, color: accent),
                               const SizedBox(width: 4),
-                              Text('Verificado', style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w700)),
+                              Text('Verificado',
+                                  style: TextStyle(
+                                      color: accent,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700)),
                             ]),
                           ),
                       ],
@@ -664,51 +795,86 @@ class _ArtistCardState extends State<_ArtistCard> {
                     // Name
                     Text(
                       a.displayName.isNotEmpty ? a.displayName : a.username,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w800, letterSpacing: -0.3),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text('@${a.username}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.38), fontSize: 12),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                    Text(
+                      '@${a.username}',
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.38),
+                          fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Miembro desde ${a.createdAt.year}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.22), fontSize: 10),
+                      style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          fontSize: 10),
                     ),
                     const SizedBox(height: 8),
                     // Disciplines
                     if (a.disciplines.isNotEmpty)
-                      Wrap(spacing: 6, runSpacing: 5, children: a.disciplines.take(3).map((d) =>
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.055),
-                            borderRadius: BorderRadius.circular(99),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.09), width: 0.5),
-                          ),
-                          child: Text(d, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10, fontWeight: FontWeight.w600)),
-                        )
-                      ).toList()),
+                      Wrap(
+                          spacing: 6,
+                          runSpacing: 5,
+                          children: a.disciplines
+                              .take(3)
+                              .map((d) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.white.withValues(alpha: 0.055),
+                                      borderRadius: BorderRadius.circular(99),
+                                      border: Border.all(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.09),
+                                          width: 0.5),
+                                    ),
+                                    child: Text(d,
+                                        style: TextStyle(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.6),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600)),
+                                  ))
+                              .toList()),
                     const Spacer(),
                     // Stats + Follow
                     Row(
                       children: [
                         Expanded(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 7),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.06), width: 0.5),
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  width: 0.5),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceAround,
                               children: [
-                                _Stat(value: _fmt(a.worksCount), label: 'obras'),
-                                Container(width: 1, height: 18, color: Colors.white.withValues(alpha: 0.08)),
-                                _Stat(value: _fmt(a.followersCount), label: 'seg.'),
+                                _Stat(
+                                    value: _fmt(a.worksCount), label: 'obras'),
+                                Container(
+                                    width: 1,
+                                    height: 18,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.08)),
+                                _Stat(
+                                    value: _fmt(a.followersCount),
+                                    label: 'seg.'),
                               ],
                             ),
                           ),
@@ -740,13 +906,14 @@ class _ArtistCardState extends State<_ArtistCard> {
   }
 
   Widget _bannerFallback(Color accent) => Container(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
-        colors: [accent.withValues(alpha: 0.18), AppColors.surface],
-      ),
-    ),
-  );
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [accent.withValues(alpha: 0.18), AppColors.surface],
+          ),
+        ),
+      );
 
   String _fmt(int n) {
     if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
@@ -800,7 +967,11 @@ class _FollowButton extends StatefulWidget {
   final Color accent;
   final VoidCallback onTap;
 
-  const _FollowButton({required this.following, required this.busy, required this.accent, required this.onTap});
+  const _FollowButton(
+      {required this.following,
+      required this.busy,
+      required this.accent,
+      required this.onTap});
   @override
   State<_FollowButton> createState() => _FollowButtonState();
 }
@@ -832,13 +1003,19 @@ class _FollowButtonState extends State<_FollowButton> {
                   ? Colors.white.withValues(alpha: 0.14)
                   : widget.accent,
             ),
-            boxShadow: (!isFollowing && _hovered) ? [
-              BoxShadow(color: widget.accent.withValues(alpha: 0.28), blurRadius: 12, offset: const Offset(0, 4)),
-            ] : [],
+            boxShadow: (!isFollowing && _hovered)
+                ? [
+                    BoxShadow(
+                        color: widget.accent.withValues(alpha: 0.28),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4)),
+                  ]
+                : [],
           ),
           child: widget.busy
               ? SizedBox(
-                  width: 12, height: 12,
+                  width: 12,
+                  height: 12,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
                     color: isFollowing ? Colors.white : AppColors.background,
@@ -847,9 +1024,13 @@ class _FollowButtonState extends State<_FollowButton> {
               : Text(
                   widget.following == null
                       ? '...'
-                      : isFollowing ? 'Siguiendo' : 'Seguir',
+                      : isFollowing
+                          ? 'Siguiendo'
+                          : 'Seguir',
                   style: TextStyle(
-                    color: isFollowing ? Colors.white.withValues(alpha: 0.7) : AppColors.background,
+                    color: isFollowing
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : AppColors.background,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.1,
@@ -875,7 +1056,8 @@ class _Avatar extends StatelessWidget {
     if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: profile.avatarUrl!,
-        imageBuilder: (_, p) => CircleAvatar(radius: radius, backgroundImage: p),
+        imageBuilder: (_, p) =>
+            CircleAvatar(radius: radius, backgroundImage: p),
         placeholder: (_, __) => _fallback(),
         errorWidget: (_, __, ___) => _fallback(),
       );
@@ -890,7 +1072,11 @@ class _Avatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: AppColors.overlay,
-      child: Text(initial, style: TextStyle(color: AppColors.textPrimary, fontSize: radius * 0.72, fontWeight: FontWeight.w800)),
+      child: Text(initial,
+          style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: radius * 0.72,
+              fontWeight: FontWeight.w800)),
     );
   }
 }
@@ -903,9 +1089,18 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(value, style: const TextStyle(color: AppColors.textPrimary, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+      Text(value,
+          style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3)),
       const SizedBox(height: 1),
-      Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 9, fontWeight: FontWeight.w500)),
+      Text(label,
+          style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.35),
+              fontSize: 9,
+              fontWeight: FontWeight.w500)),
     ]);
   }
 }

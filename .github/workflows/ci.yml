@@ -47,8 +47,14 @@ jobs:
       - name: Pruebas
         run: flutter test
 
+      # `--no-web-resources-cdn` empaqueta CanvasKit en el propio sitio en vez
+      # de descargarlo de gstatic.com en cada arranque. Dos motivos: la
+      # politica de seguridad de `web/_headers` solo permite scripts del propio
+      # origen, y la conexion a Supabase ya esta abierta cuando arranca la
+      # aplicacion, mientras que gstatic exigiria un DNS y un TLS mas antes de
+      # pintar el primer fotograma.
       - name: Compilar web
-        run: flutter build web --release
+        run: flutter build web --release --no-web-resources-cdn
 
       # La barrera de calidad: si algo de lo anterior falla, producción no se
       # toca. Y una pull request llega hasta aquí sin desplegar nada.

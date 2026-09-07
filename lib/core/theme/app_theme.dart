@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'corvus_design.dart';
+import '../../shared/widgets/corvus_motion.dart';
 
 abstract final class AppTheme {
   /// Tema base estático (fallback cuando no hay conspiración cargada).
@@ -35,6 +36,20 @@ abstract final class AppTheme {
       ),
       textTheme: _textTheme,
       visualDensity: VisualDensity.standard,
+      // Una sola transición para todas las rutas apiladas y todas las
+      // plataformas. Por defecto, Flutter da a cada sistema la suya —el
+      // deslizamiento lateral de iOS, el ascenso de Android, nada en web—, y
+      // Corvus es la misma aplicación en los tres sitios.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CorvusPageTransitionsBuilder(),
+          TargetPlatform.iOS: CorvusPageTransitionsBuilder(),
+          TargetPlatform.macOS: CorvusPageTransitionsBuilder(),
+          TargetPlatform.windows: CorvusPageTransitionsBuilder(),
+          TargetPlatform.linux: CorvusPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: CorvusPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: base,
         foregroundColor: AppColors.textPrimary,
