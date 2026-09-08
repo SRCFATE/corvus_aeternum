@@ -16,9 +16,15 @@ abstract final class AppTheme {
     required Color accent,
     required Color base,
     required Color surface,
+    bool highContrast = false,
   }) {
     final card = Color.lerp(base, surface, 0.5)!;
-    final border = Color.lerp(surface, accent, 0.12)!;
+    final border = highContrast
+        ? Colors.white.withValues(alpha: 0.24)
+        : Color.lerp(surface, accent, 0.16)!;
+    final primaryText = highContrast ? Colors.white : AppColors.textPrimary;
+    final secondaryText =
+        highContrast ? const Color(0xFFD4CEC5) : AppColors.textSecondary;
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
@@ -30,11 +36,16 @@ abstract final class AppTheme {
         error: AppColors.error,
         onPrimary: base,
         onSecondary: AppColors.textPrimary,
-        onSurface: AppColors.textPrimary,
+        onSurface: primaryText,
         onError: AppColors.textPrimary,
         outline: border,
       ),
-      textTheme: _textTheme,
+      textTheme: highContrast
+          ? _textTheme.apply(
+              bodyColor: primaryText,
+              displayColor: primaryText,
+            )
+          : _textTheme,
       visualDensity: VisualDensity.standard,
       // Una sola transición para todas las rutas apiladas y todas las
       // plataformas. Por defecto, Flutter da a cada sistema la suya —el
@@ -56,11 +67,12 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        titleTextStyle: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 17,
+        titleTextStyle: TextStyle(
+          color: primaryText,
+          fontFamily: 'serif',
+          fontSize: 19,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -0.2,
         ),
         iconTheme: const IconThemeData(color: AppColors.textSecondary),
       ),
@@ -108,8 +120,7 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(CorvusRadius.md),
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
-        labelStyle:
-            const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        labelStyle: TextStyle(color: secondaryText, fontSize: 14),
         hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
         errorStyle: const TextStyle(color: AppColors.errorLight, fontSize: 12),
         prefixIconColor: AppColors.textSecondary,
@@ -127,6 +138,22 @@ abstract final class AppTheme {
             fontSize: 14.5,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.1,
+          ),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: accent,
+          foregroundColor: base,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(CorvusRadius.md),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.15,
           ),
         ),
       ),
@@ -154,6 +181,26 @@ abstract final class AppTheme {
         color: AppColors.border,
         thickness: 0.5,
         space: 0,
+      ),
+      switchTheme: SwitchThemeData(
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? accent.withValues(alpha: 0.48)
+              : Colors.white.withValues(alpha: 0.10),
+        ),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? accent
+              : AppColors.textMuted,
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll(
+          accent.withValues(alpha: 0.32),
+        ),
+        radius: const Radius.circular(CorvusRadius.pill),
+        thickness: const WidgetStatePropertyAll(4),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.overlay,
@@ -206,46 +253,53 @@ abstract final class AppTheme {
   static const TextTheme _textTheme = TextTheme(
     displayLarge: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 57,
-      fontWeight: FontWeight.w900,
-      letterSpacing: -1.6,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -1.1,
       height: 1.02,
     ),
     displayMedium: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 45,
-      fontWeight: FontWeight.w900,
+      fontWeight: FontWeight.w700,
       letterSpacing: -1.2,
       height: 1.04,
     ),
     displaySmall: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 36,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.9,
     ),
     headlineLarge: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 32,
-      fontWeight: FontWeight.w900,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.8,
     ),
     headlineMedium: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 28,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.6,
     ),
     headlineSmall: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 24,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.5,
     ),
     titleLarge: TextStyle(
       color: AppColors.textPrimary,
+      fontFamily: 'serif',
       fontSize: 20,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w700,
       letterSpacing: -0.4,
     ),
     titleMedium: TextStyle(

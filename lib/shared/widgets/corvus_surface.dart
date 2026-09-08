@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_design.dart';
 
 class CorvusSurface extends StatelessWidget {
   final Widget child;
@@ -14,7 +15,8 @@ class CorvusSurface extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.onTap,
     this.color,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.borderRadius =
+        const BorderRadius.all(Radius.circular(CorvusRadius.md)),
   });
 
   @override
@@ -24,8 +26,10 @@ class CorvusSurface extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: color ?? AppColors.card.withValues(alpha: 0.72),
+        gradient: color == null ? CorvusSurfaces.sheen(strength: 0.9) : null,
         borderRadius: borderRadius,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.085)),
+        boxShadow: CorvusElevation.low,
       ),
       child: child,
     );
@@ -69,22 +73,12 @@ class CorvusSectionHeader extends StatelessWidget {
             children: [
               Text(
                 eyebrow,
-                style: TextStyle(
-                  color: AppColors.primary.withValues(alpha: 0.72),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.4,
-                ),
+                style: CorvusType.eyebrow(AppColors.primary, alpha: 0.78),
               ),
               const SizedBox(height: 8),
               Text(
                 title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
+                style: CorvusType.title.copyWith(fontSize: 25),
               ),
               const SizedBox(height: 6),
               Text(

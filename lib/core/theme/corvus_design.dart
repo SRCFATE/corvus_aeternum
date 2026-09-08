@@ -18,10 +18,10 @@ abstract final class CorvusSpacing {
 }
 
 abstract final class CorvusRadius {
-  static const double sm = 10;
-  static const double md = 14;
-  static const double lg = 18;
-  static const double xl = 24;
+  static const double sm = 8;
+  static const double md = 11;
+  static const double lg = 15;
+  static const double xl = 20;
   static const double pill = 999;
 
   static BorderRadius all(double r) => BorderRadius.circular(r);
@@ -124,18 +124,20 @@ abstract final class CorvusSurfaces {
 abstract final class CorvusType {
   static const TextStyle display = TextStyle(
     color: AppColors.textPrimary,
+    fontFamily: 'serif',
     fontSize: 34,
-    fontWeight: FontWeight.w900,
-    letterSpacing: -1.0,
-    height: 1.05,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.7,
+    height: 1.08,
   );
 
   static const TextStyle title = TextStyle(
     color: AppColors.textPrimary,
+    fontFamily: 'serif',
     fontSize: 22,
-    fontWeight: FontWeight.w800,
-    letterSpacing: -0.5,
-    height: 1.15,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.25,
+    height: 1.18,
   );
 
   static const TextStyle subtitle = TextStyle(

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/user_profile.dart';
+import '../../models/artist_ranking.dart';
 import '../../models/work.dart';
 import '../../models/collection.dart';
 import '../../providers/auth_provider.dart';
@@ -286,8 +287,9 @@ class _ProfilePageState extends State<ProfilePage>
   Widget _buildProfileInfo(UserProfile profile) {
     return CorvusSurface(
       padding: EdgeInsets.zero,
+      borderRadius: BorderRadius.circular(CorvusRadius.lg),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(CorvusRadius.lg),
         child: Stack(
           children: [
             Positioned.fill(
@@ -316,6 +318,7 @@ class _ProfilePageState extends State<ProfilePage>
                     },
                     onFollow: _toggleFollow,
                     onSignOut: () => confirmAndSignOut(context),
+                    onSettings: () => context.go('/settings'),
                     onBack: _isExternalProfile
                         ? () => context.canPop()
                             ? context.pop()
@@ -1163,6 +1166,7 @@ class _ProfileIdentity extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onFollow;
   final VoidCallback onSignOut;
+  final VoidCallback onSettings;
   final VoidCallback? onBack;
   final Future<void> Function(String value, String label) onCopy;
   final Widget Function(int value, String label) statBuilder;
@@ -1177,6 +1181,7 @@ class _ProfileIdentity extends StatelessWidget {
     required this.onEdit,
     required this.onFollow,
     required this.onSignOut,
+    required this.onSettings,
     required this.onCopy,
     required this.statBuilder,
     this.onBack,
@@ -1186,6 +1191,8 @@ class _ProfileIdentity extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayName =
         profile.displayName.isNotEmpty ? profile.displayName : profile.username;
+    final rankingScore = ArtistRankingEntry.scoreFor(profile);
+    final rankingCircle = ArtistRankingEntry.circleFor(rankingScore);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1229,6 +1236,12 @@ class _ProfileIdentity extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _ProfileIconAction(
+                icon: Icons.tune_rounded,
+                onTap: onSettings,
+                tooltip: 'Configuración',
+              ),
+              const SizedBox(width: 8),
+              _ProfileIconAction(
                 icon: Icons.logout_rounded,
                 onTap: onSignOut,
                 tooltip: 'Cerrar sesion',
@@ -1264,8 +1277,9 @@ class _ProfileIdentity extends StatelessWidget {
                 displayName,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
+                  fontFamily: 'serif',
                   fontSize: 30,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1.05,
                 ),
                 maxLines: 1,
@@ -1287,6 +1301,12 @@ class _ProfileIdentity extends StatelessWidget {
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
+        ),
+        const SizedBox(height: 14),
+        _ProfileRankSeal(
+          score: rankingScore,
+          circle: rankingCircle,
+          onTap: () => context.go('/ranking'),
         ),
         const SizedBox(height: 14),
         Text(
@@ -1350,6 +1370,81 @@ class _ProfileIdentity extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _ProfileRankSeal extends StatelessWidget {
+  final int score;
+  final AeternumCircle circle;
+  final VoidCallback onTap;
+
+  const _ProfileRankSeal({
+    required this.score,
+    required this.circle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.watch<ConspirationProvider>().accent;
+    return CorvusPressable(
+      onTap: onTap,
+      hoverScale: 1.005,
+      hoverLift: 1,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(CorvusRadius.md),
+          border: Border.all(color: accent.withValues(alpha: 0.28)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.14),
+                border: Border.all(color: accent.withValues(alpha: 0.35)),
+              ),
+              child: Icon(Icons.workspace_premium_outlined,
+                  color: accent, size: 16),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    circle.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$score puntos en el Índice Aeternum',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: CorvusType.muted.copyWith(fontSize: 10.5),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Icon(Icons.arrow_outward_rounded,
+                size: 15, color: accent.withValues(alpha: 0.72)),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1618,9 +1713,8 @@ class _RitualInvokeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = context.watch<ConspirationProvider>().accent;
-    final name = profile.displayName.isNotEmpty
-        ? profile.displayName
-        : profile.username;
+    final name =
+        profile.displayName.isNotEmpty ? profile.displayName : profile.username;
 
     return CorvusPanel(
       accent: accent,

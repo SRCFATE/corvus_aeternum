@@ -19,9 +19,21 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     const paths = [
-      '/feed', '/discover', '/collections', '/profile', '/auctions',
-      '/artists', '/atelier', '/mundiarium', '/archive', '/certificates',
-      '/insights', '/planner', '/arena', '/glossary', '/conspiracies',
+      '/feed',
+      '/discover',
+      '/collections',
+      '/profile',
+      '/auctions',
+      '/artists',
+      '/atelier',
+      '/mundiarium',
+      '/archive',
+      '/certificates',
+      '/insights',
+      '/planner',
+      '/arena',
+      '/glossary',
+      '/conspiracies',
       '/forums',
     ];
 
@@ -35,7 +47,8 @@ void main() {
             for (final p in paths)
               GoRoute(
                 path: p,
-                builder: (_, __) => Center(key: ValueKey('page$p'), child: Text(p)),
+                builder: (_, __) =>
+                    Center(key: ValueKey('page$p'), child: Text(p)),
               ),
           ],
         ),
@@ -61,9 +74,15 @@ void main() {
     await pumpShell(tester);
 
     for (final label in [
-      'Descubrir', 'Explorar', 'Atelier', 'Ranking', 'Colecciones', 'Subastas',
+      'Descubrir',
+      'Explorar',
+      'Atelier',
+      'Ranking',
+      'Colecciones',
+      'Subastas',
     ]) {
-      expect(find.text(label), findsWidgets, reason: 'falta $label en la barra');
+      expect(find.text(label), findsWidgets,
+          reason: 'falta $label en la barra');
     }
     expect(find.text('Más'), findsOneWidget);
   });
@@ -112,8 +131,7 @@ void main() {
     await tester.tap(find.text('Más'));
     await tester.pumpAndSettle();
 
-    final gesture =
-        await tester.createGesture(kind: PointerDeviceKind.mouse);
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
     addTearDown(gesture.removePointer);
 
@@ -162,7 +180,11 @@ void main() {
     await pumpShell(tester, size: const Size(420, 900));
 
     for (final label in [
-      'Descubrir', 'Explorar', 'Atelier', 'Ranking', 'Colecciones',
+      'Descubrir',
+      'Explorar',
+      'Atelier',
+      'Ranking',
+      'Colecciones',
     ]) {
       expect(find.text(label), findsWidgets, reason: 'falta $label en móvil');
     }
@@ -185,8 +207,18 @@ void main() {
     }
   });
 
-  testWidgets('el cajón móvil ofrece los destinos secundarios',
+  testWidgets('la cabecera compacta no desborda en un teléfono estrecho',
       (tester) async {
+    await pumpShell(tester, size: const Size(320, 700));
+
+    expect(find.byTooltip('Menú'), findsOneWidget);
+    expect(find.byTooltip('Crear obra'), findsOneWidget);
+    expect(find.byTooltip('Buscar'), findsOneWidget);
+    expect(find.byTooltip('Avisos'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('el cajón móvil ofrece los destinos secundarios', (tester) async {
     final router = await pumpShell(tester, size: const Size(420, 900));
 
     // Antes de abrirlo, lo secundario no está en pantalla.

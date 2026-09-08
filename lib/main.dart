@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'providers/auth_provider.dart';
 import 'providers/atelier_provider.dart';
+import 'providers/app_preferences_provider.dart';
 import 'providers/conspiration_provider.dart';
 import 'providers/entitlement_provider.dart';
 import 'services/conspiracy_service.dart';
@@ -61,6 +62,9 @@ class _CorvusAppState extends State<CorvusApp> {
         ChangeNotifierProvider(create: (_) => ConspirationProvider()),
         ChangeNotifierProvider(create: (_) => AtelierProvider()),
         ChangeNotifierProvider(create: (_) => EntitlementProvider()),
+        ChangeNotifierProvider(
+          create: (_) => AppPreferencesProvider()..initialize(),
+        ),
       ],
       child: _ConspirationLoader(
         router: _routerWrapper.router,
@@ -147,6 +151,7 @@ class _ConspirationLoaderState extends State<_ConspirationLoader>
   @override
   Widget build(BuildContext context) {
     final cp = context.watch<ConspirationProvider>();
+    final preferences = context.watch<AppPreferencesProvider>();
 
     return MaterialApp.router(
       title: 'Corvus Aeternum',
@@ -155,7 +160,22 @@ class _ConspirationLoaderState extends State<_ConspirationLoader>
         accent: cp.accent,
         base: cp.base,
         surface: cp.surface,
+        highContrast: preferences.highContrast,
       ),
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        final systemScale = media.textScaler.scale(16) / 16;
+        return MediaQuery(
+          data: media.copyWith(
+            disableAnimations:
+                media.disableAnimations || preferences.reduceMotion,
+            textScaler: TextScaler.linear(
+              systemScale * (preferences.largerText ? 1.15 : 1),
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       routerConfig: widget.router,
     );
   }

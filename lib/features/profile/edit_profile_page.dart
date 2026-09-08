@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/rpc_error.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_design.dart';
 import '../../models/picked_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/profile_service.dart';
@@ -14,6 +15,7 @@ import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_button.dart';
 import '../../shared/widgets/corvus_text_field.dart';
 import '../../shared/widgets/user_avatar.dart';
+import '../../shared/widgets/corvus_motion.dart';
 
 const _disciplines = [
   'Pintura',
@@ -164,7 +166,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar perfil'),
+        title: const Text('Perfil editorial'),
         leading: IconButton(
           icon: const Icon(Icons.close, size: 20),
           onPressed: _leave,
@@ -184,104 +186,183 @@ class _EditProfilePageState extends State<EditProfilePage> {
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 28),
             children: [
-              _buildAvatarSection(profile),
-              const SizedBox(height: 28),
-              CorvusTextField(
-                controller: _displayNameController,
-                label: 'Nombre a mostrar',
-                validator: (v) =>
-                    (v == null || v.isEmpty) ? 'Campo obligatorio' : null,
-              ),
-              const SizedBox(height: 16),
-              CorvusTextField(
-                controller: _bioController,
-                label: 'Biografía',
-                maxLines: 4,
-                maxLength: 300,
-              ),
-              const SizedBox(height: 16),
-              CorvusTextField(
-                controller: _countryController,
-                label: 'País',
-                prefixIcon: const Icon(Icons.public_outlined),
-              ),
-              const SizedBox(height: 16),
-              CorvusTextField(
-                controller: _websiteController,
-                label: 'Sitio web',
-                hint: 'https://tuportafolio.com',
-                keyboardType: TextInputType.url,
-                prefixIcon: const Icon(Icons.link_outlined),
-              ),
-              const SizedBox(height: 16),
-              CorvusTextField(
-                controller: _instagramController,
-                label: 'Instagram',
-                hint: '@tuusuario',
-                prefixIcon: const Icon(Icons.camera_alt_outlined),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Disciplinas',
-                style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _disciplines.map((d) {
-                  final selected = _selectedDisciplines.contains(d);
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      if (selected) {
-                        _selectedDisciplines.remove(d);
-                      } else {
-                        _selectedDisciplines.add(d);
-                      }
-                    }),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.primaryMuted
-                            : AppColors.overlay,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color:
-                              selected ? AppColors.primary : AppColors.border,
-                          width: selected ? 1.5 : 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        d,
-                        style: TextStyle(
-                          color: selected
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w400,
-                        ),
+              CorvusReveal(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'IDENTIDAD PÚBLICA',
+                      style: CorvusType.eyebrow(
+                        AppColors.primary,
+                        alpha: 0.82,
                       ),
                     ),
-                  );
-                }).toList(),
+                    const SizedBox(height: 8),
+                    Text('Edita tu firma', style: CorvusType.display),
+                    const SizedBox(height: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: Text(
+                        'Tu perfil reúne la obra, el contexto y las señales con las que otros lectores reconocen tu trayectoria.',
+                        style: CorvusType.body,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              CorvusReveal(
+                delay: const Duration(milliseconds: 50),
+                child: _buildAvatarSection(profile),
+              ),
+              const SizedBox(height: 30),
+              const CorvusSectionLabel(label: 'Ficha pública'),
+              const SizedBox(height: 12),
+              CorvusPanel(
+                padding: const EdgeInsets.all(20),
+                child: _buildIdentityFields(),
               ),
               const SizedBox(height: 28),
-              _UsernameChangeSection(profile: profile),
+              const CorvusSectionLabel(label: 'Práctica creativa'),
+              const SizedBox(height: 12),
+              CorvusPanel(
+                padding: const EdgeInsets.all(20),
+                child: _buildDisciplines(),
+              ),
               const SizedBox(height: 28),
+              const CorvusSectionLabel(label: 'Cuenta'),
+              const SizedBox(height: 12),
+              _UsernameChangeSection(profile: profile),
+              const SizedBox(height: 36),
+              const CorvusSectionLabel(label: 'Control de datos'),
+              const SizedBox(height: 12),
               _DangerZone(onDeleteAccount: _confirmDeleteAccount),
-              const SizedBox(height: 32),
+              const SizedBox(height: 42),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildIdentityFields() {
+    return Column(
+      children: [
+        CorvusTextField(
+          controller: _displayNameController,
+          label: 'Nombre a mostrar',
+          validator: (v) =>
+              (v == null || v.isEmpty) ? 'Campo obligatorio' : null,
+        ),
+        const SizedBox(height: 16),
+        CorvusTextField(
+          controller: _bioController,
+          label: 'Biografía',
+          maxLines: 4,
+          maxLength: 300,
+        ),
+        const SizedBox(height: 16),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 680;
+            final country = CorvusTextField(
+              controller: _countryController,
+              label: 'País',
+              prefixIcon: const Icon(Icons.public_outlined),
+            );
+            final instagram = CorvusTextField(
+              controller: _instagramController,
+              label: 'Instagram',
+              hint: '@tuusuario',
+              prefixIcon: const Icon(Icons.camera_alt_outlined),
+            );
+            if (!wide) {
+              return Column(
+                children: [
+                  country,
+                  const SizedBox(height: 16),
+                  instagram,
+                ],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: country),
+                const SizedBox(width: 16),
+                Expanded(child: instagram),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        CorvusTextField(
+          controller: _websiteController,
+          label: 'Sitio web',
+          hint: 'https://tuportafolio.com',
+          keyboardType: TextInputType.url,
+          prefixIcon: const Icon(Icons.link_outlined),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDisciplines() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Selecciona los campos que mejor describen tu práctica. Se usan en búsqueda y en las ediciones del Índice Aeternum.',
+          style: CorvusType.muted,
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _disciplines.map((discipline) {
+            final selected = _selectedDisciplines.contains(discipline);
+            return CorvusPressable(
+              onTap: () => setState(() {
+                if (selected) {
+                  _selectedDisciplines.remove(discipline);
+                } else {
+                  _selectedDisciplines.add(discipline);
+                }
+              }),
+              hoverScale: 1.02,
+              hoverLift: 0,
+              child: AnimatedContainer(
+                duration: CorvusMotion.fast,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? AppColors.primary.withValues(alpha: 0.14)
+                      : AppColors.overlay,
+                  borderRadius: BorderRadius.circular(CorvusRadius.pill),
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.primary.withValues(alpha: 0.72)
+                        : AppColors.border,
+                  ),
+                ),
+                child: Text(
+                  discipline,
+                  style: TextStyle(
+                    color: selected
+                        ? AppColors.primaryLight
+                        : AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -311,48 +392,151 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   Widget _buildAvatarSection(dynamic profile) {
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: _pickAvatar,
-          child: Stack(
-            children: [
-              _newAvatar != null
-                  ? CircleAvatar(
-                      radius: 50,
-                      backgroundImage: MemoryImage(_newAvatar!.bytes))
-                  : UserAvatar(
-                      imageUrl: profile.avatarUrl,
-                      displayName: profile.displayName,
-                      radius: 50),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.camera_alt,
-                      color: AppColors.background, size: 14),
+    return Container(
+      height: 210,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(CorvusRadius.lg),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        boxShadow: CorvusElevation.medium,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(CorvusRadius.lg),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_newBanner != null)
+              Image.memory(_newBanner!.bytes, fit: BoxFit.cover)
+            else if (profile.bannerUrl != null && profile.bannerUrl.isNotEmpty)
+              Image.network(
+                profile.bannerUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _bannerFallback(),
+              )
+            else
+              _bannerFallback(),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppColors.background.withValues(alpha: 0.88),
+                  ],
                 ),
               ),
+            ),
+            Positioned(
+              right: 14,
+              top: 14,
+              child: OutlinedButton.icon(
+                onPressed: _pickBanner,
+                icon: const Icon(Icons.image_outlined, size: 16),
+                label: Text(
+                  _newBanner != null ? 'Portada lista' : 'Cambiar portada',
+                ),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.background.withValues(alpha: 0.72),
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 20,
+              right: 20,
+              bottom: 18,
+              child: Row(
+                children: [
+                  CorvusPressable(
+                    onTap: _pickAvatar,
+                    hoverScale: 1.04,
+                    hoverLift: 1,
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.background,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.30),
+                            ),
+                          ),
+                          child: _newAvatar != null
+                              ? CircleAvatar(
+                                  radius: 38,
+                                  backgroundImage:
+                                      MemoryImage(_newAvatar!.bytes),
+                                )
+                              : UserAvatar(
+                                  imageUrl: profile.avatarUrl,
+                                  displayName: profile.displayName,
+                                  radius: 38,
+                                ),
+                        ),
+                        Positioned(
+                          bottom: 1,
+                          right: 1,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.photo_camera_outlined,
+                              color: AppColors.textPrimary,
+                              size: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: CorvusType.title.copyWith(fontSize: 19),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '@${profile.username}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: CorvusType.muted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bannerFallback() => DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.primary.withValues(alpha: 0.28),
+              AppColors.card,
+              AppColors.surface,
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        TextButton.icon(
-          onPressed: _pickBanner,
-          icon: const Icon(Icons.image_outlined, size: 16),
-          label: Text(
-            _newBanner != null ? 'Banner seleccionado ✓' : 'Cambiar banner',
-            style: const TextStyle(fontSize: 13),
-          ),
-        ),
-      ],
-    );
-  }
+      );
 }
 
 // ─────────────────────────────────────────────────────────────

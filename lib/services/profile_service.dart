@@ -1,15 +1,13 @@
 import '../core/rpc_error.dart';
 import '../core/supabase_config.dart';
 import '../models/user_profile.dart';
+import '../models/artist_ranking.dart';
 import '../models/work.dart';
 
 class ProfileService {
   Future<UserProfile?> getProfileById(String id) async {
-    final data = await supabase
-        .from('profiles')
-        .select()
-        .eq('id', id)
-        .maybeSingle();
+    final data =
+        await supabase.from('profiles').select().eq('id', id).maybeSingle();
 
     if (data == null) return null;
 
@@ -74,7 +72,8 @@ class ProfileService {
     return data != null;
   }
 
-  Future<List<UserProfile>> searchProfiles(String query, {int limit = 20}) async {
+  Future<List<UserProfile>> searchProfiles(String query,
+      {int limit = 20}) async {
     final data = await supabase
         .from('profiles')
         .select()
@@ -112,10 +111,37 @@ class ProfileService {
     }
   }
 
-  Future<List<Work>> getProfileWorks(String profileId, {int limit = 30, int offset = 0}) async {
+  /// Clasificación pública del archivo.
+  ///
+  /// Se recupera una cohorte acotada y la fórmula se ejecuta en Dart para que
+  /// la app y sus pruebas compartan exactamente el mismo criterio. Cuando el
+  /// archivo supere este tamaño, esta misma salida puede moverse a una vista
+  /// `security_invoker` sin cambiar ninguna pantalla.
+  Future<List<ArtistRankingEntry>> getArtistRanking({
+    String? discipline,
+    int limit = 250,
+  }) async {
+    var request = supabase.from('profiles').select();
+
+    if (discipline != null && discipline.isNotEmpty) {
+      request = request.contains('disciplines', [discipline]);
+    }
+
+    final data = await request
+        .eq('is_banned', false)
+        .order('total_likes_received', ascending: false)
+        .limit(limit);
+    final profiles =
+        (data as List).map((entry) => UserProfile.fromMap(entry)).toList();
+    return ArtistRankingEntry.rank(profiles);
+  }
+
+  Future<List<Work>> getProfileWorks(String profileId,
+      {int limit = 30, int offset = 0}) async {
     final data = await supabase
         .from('works')
-        .select('*, profiles!works_profile_id_fkey(username, display_name, avatar_url)')
+        .select(
+            '*, profiles!works_profile_id_fkey(username, display_name, avatar_url)')
         .eq('profile_id', profileId)
         .eq('status', 'published')
         .eq('is_public', true)

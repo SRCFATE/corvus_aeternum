@@ -13,7 +13,7 @@
     name="description"
     content="Corvus Aeternum, el archivo vivo de artistas, obra y legado."
   >
-  <meta name="theme-color" content="#09090C">
+  <meta name="theme-color" content="#0B0908">
 
   <!--
     Las conexiones que la aplicación abre en cuanto arranca. Declararlas aquí
@@ -40,11 +40,31 @@
     html, body {
       margin: 0;
       padding: 0;
+      width: 100%;
       height: 100%;
-      background: #09090C;
+      min-height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: #0B0908;
       /* El fondo del documento importa: mientras carga el motor, lo que se ve
          es esto, y un blanco por defecto sobre un tema oscuro es un fogonazo. */
       color-scheme: dark;
+    }
+
+    /* En navegadores móviles la barra de direcciones cambia la altura visible
+       mientras se desplaza. `dvh` sigue ese cambio y evita que la navegación
+       inferior de Flutter quede calculada con la altura antigua. */
+    @supports (height: 100dvh) {
+      html, body {
+        height: 100dvh;
+        min-height: 100dvh;
+      }
+    }
+
+    flutter-view {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
 
     /* ── Pantalla de arranque ────────────────────────────────────────────
@@ -64,7 +84,7 @@
       background: radial-gradient(
         circle at 50% 38%,
         #16121b 0%,
-        #09090C 62%
+        #0B0908 62%
       );
       z-index: 9999;
       transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -159,7 +179,7 @@
     // guardada coincide con la vigente, no se toca nada y el navegador sirve
     // el paquete que ya tiene.
     (async () => {
-      const cacheVersion = 'corvus-web-20260907-experiencia';
+      const cacheVersion = 'corvus-web-20260907-mobile-v2';
       const versionKey = 'corvus-build';
 
       const boot = () => {

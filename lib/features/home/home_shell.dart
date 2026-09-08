@@ -44,7 +44,7 @@ class _HomeShellState extends State<HomeShell> {
     '/collections', // 2 — Colecciones
     '/profile', // 3 — Perfil (no aparece en desktop nav)
     '/auctions', // 4 — Subastas
-    '/artists', // 5 — Artistas
+    '/ranking', // 5 — Índice Aeternum
     '/atelier', // 6 - Atelier
     '/mundiarium', // 7 - Mundiarium
     '/archive', // 8 - Archivo Aeternum
@@ -57,9 +57,13 @@ class _HomeShellState extends State<HomeShell> {
     '/forums', // 15 - Comunidades privadas de autores
     '/settings/billing', // 16 - Plan de Atelier y facturación
     '/workspaces', // 17 - Espacios de trabajo de Atelier Teams
+    '/settings', // 18 - Preferencias de la aplicación
   ];
 
   int _locationToIndex(String location) {
+    // El directorio comparte familia de navegación con el índice, aunque
+    // conserve su URL pública para búsqueda directa.
+    if (location.startsWith('/artists')) return 5;
     for (int i = 0; i < _tabs.length; i++) {
       if (location.startsWith(_tabs[i])) return i;
     }
@@ -240,7 +244,10 @@ class _CorvusMobileBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = context.watch<AuthProvider>().profile;
     final topPad = MediaQuery.of(context).padding.top;
-    final tight = MediaQuery.sizeOf(context).width < 380;
+    final width = MediaQuery.sizeOf(context).width;
+    final tight = width < 440;
+    final veryTight = width < 350;
+    final actionGap = tight ? 6.0 : 8.0;
 
     return ClipRRect(
       child: BackdropFilter(
@@ -256,7 +263,7 @@ class _CorvusMobileBar extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(14, topPad + 10, 12, 10),
+            padding: EdgeInsets.fromLTRB(12, topPad + 8, 12, 8),
             child: Row(
               children: [
                 _CircleIconButton(
@@ -264,8 +271,12 @@ class _CorvusMobileBar extends StatelessWidget {
                   onTap: onOpenMenu,
                   tooltip: 'Menú',
                 ),
-                const SizedBox(width: 10),
-                _BrandLogo(onTap: () => onTabSelected(1), compact: true),
+                SizedBox(width: tight ? 8 : 10),
+                _BrandLogo(
+                  onTap: () => onTabSelected(1),
+                  compact: true,
+                  showName: !veryTight,
+                ),
                 const Spacer(),
                 // En pantallas muy estrechas el pastillón "Crear" empuja al
                 // avatar fuera de la fila. Ahí se reduce a su icono, que es lo
@@ -279,20 +290,20 @@ class _CorvusMobileBar extends StatelessWidget {
                   )
                 else
                   _PrimaryPillButton(label: 'Crear', onTap: onUpload),
-                const SizedBox(width: 8),
+                SizedBox(width: actionGap),
                 _CircleIconButton(
                   icon: Icons.search_rounded,
                   onTap: () => showGlobalSearch(context),
                   tooltip: 'Buscar',
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: actionGap),
                 _CircleIconButton(
                   icon: Icons.notifications_none_rounded,
                   onTap: onNotifications,
                   tooltip: 'Avisos',
                 ),
                 if (profile != null) ...[
-                  const SizedBox(width: 8),
+                  SizedBox(width: actionGap),
                   CorvusPressable(
                     onTap: () => onTabSelected(3),
                     hoverScale: 1.06,
@@ -692,9 +703,8 @@ class _DrawerTile extends StatelessWidget {
             vertical: 13,
           ),
           decoration: BoxDecoration(
-            color: selected
-                ? accent.withValues(alpha: 0.14)
-                : Colors.transparent,
+            color:
+                selected ? accent.withValues(alpha: 0.14) : Colors.transparent,
             borderRadius: BorderRadius.circular(CorvusRadius.md),
           ),
           child: Row(
@@ -992,6 +1002,12 @@ const _moreGroups = <_MoreGroup>[
         hint: 'Tu plan de Atelier, uso y pagos',
         icon: Icons.workspace_premium_outlined,
       ),
+      _MoreEntry(
+        index: 18,
+        label: 'Configuración',
+        hint: 'Lectura, accesibilidad y cuenta',
+        icon: Icons.tune_rounded,
+      ),
     ],
   ),
   _MoreGroup(
@@ -1087,27 +1103,27 @@ class _SpacesMenuButton extends StatelessWidget {
           onTap: () => _open(context, accent),
           behavior: HitTestBehavior.opaque,
           child: compact
-          ? AnimatedContainer(
-              duration: CorvusMotion.fast,
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: selected
-                    ? accent.withValues(alpha: 0.18)
-                    : CorvusSurfaces.fill(CorvusSurfaces.fillRaised),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected
-                      ? accent.withValues(alpha: 0.42)
-                      : CorvusSurfaces.fill(CorvusSurfaces.borderBase),
-                ),
-              ),
-              child: Icon(
-                Icons.grid_view_rounded,
-                size: 18,
-                color: selected ? accent : AppColors.textSecondary,
-              ),
-            )
+              ? AnimatedContainer(
+                  duration: CorvusMotion.fast,
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? accent.withValues(alpha: 0.18)
+                        : CorvusSurfaces.fill(CorvusSurfaces.fillRaised),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected
+                          ? accent.withValues(alpha: 0.42)
+                          : CorvusSurfaces.fill(CorvusSurfaces.borderBase),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.grid_view_rounded,
+                    size: 18,
+                    color: selected ? accent : AppColors.textSecondary,
+                  ),
+                )
               : _HoverNavLink(
                   label: 'Más',
                   selected: selected,
@@ -1146,8 +1162,9 @@ class _MoreMenuOverlay extends StatelessWidget {
         .clamp(240.0, maxWidth > 0 ? maxWidth : 240.0);
 
     // Se ancla al botón pero nunca sale de la pantalla por el borde derecho.
-    final left =
-        (anchor.dx - 12).clamp(margin, (overlaySize.width - panelWidth - margin)
+    final left = (anchor.dx - 12).clamp(
+        margin,
+        (overlaySize.width - panelWidth - margin)
             .clamp(margin, double.infinity));
 
     final curved =
@@ -1203,66 +1220,66 @@ class _MoreMenuPanel extends StatelessWidget {
       final wide = constraints.maxWidth >= 560;
 
       return ClipRRect(
-      borderRadius: BorderRadius.circular(CorvusRadius.xl),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.card.withValues(alpha: 0.94),
-            borderRadius: BorderRadius.circular(CorvusRadius.xl),
-            border: Border.all(
-              color: CorvusSurfaces.fill(CorvusSurfaces.borderBase),
+        borderRadius: BorderRadius.circular(CorvusRadius.xl),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.card.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(CorvusRadius.xl),
+              border: Border.all(
+                color: CorvusSurfaces.fill(CorvusSurfaces.borderBase),
+              ),
+              boxShadow: CorvusElevation.high,
             ),
-            boxShadow: CorvusElevation.high,
-          ),
-          child: Stack(
-            children: [
-              // Halo del acento de la casa activa en la esquina superior.
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: const Alignment(-0.75, -1.4),
-                        radius: 1.3,
-                        colors: [
-                          accent.withValues(alpha: 0.14),
-                          Colors.transparent,
-                        ],
+            child: Stack(
+              children: [
+                // Halo del acento de la casa activa en la esquina superior.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: const Alignment(-0.75, -1.4),
+                          radius: 1.3,
+                          colors: [
+                            accent.withValues(alpha: 0.14),
+                            Colors.transparent,
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(CorvusSpacing.lg),
-                child: wide
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < _moreGroups.length; i++) ...[
-                            Expanded(child: _buildGroup(_moreGroups[i])),
-                            if (i < _moreGroups.length - 1)
-                              const SizedBox(width: CorvusSpacing.md),
+                Padding(
+                  padding: const EdgeInsets.all(CorvusSpacing.lg),
+                  child: wide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (var i = 0; i < _moreGroups.length; i++) ...[
+                              Expanded(child: _buildGroup(_moreGroups[i])),
+                              if (i < _moreGroups.length - 1)
+                                const SizedBox(width: CorvusSpacing.md),
+                            ],
                           ],
-                        ],
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (var i = 0; i < _moreGroups.length; i++) ...[
-                            _buildGroup(_moreGroups[i]),
-                            if (i < _moreGroups.length - 1)
-                              const SizedBox(height: CorvusSpacing.lg),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (var i = 0; i < _moreGroups.length; i++) ...[
+                              _buildGroup(_moreGroups[i]),
+                              if (i < _moreGroups.length - 1)
+                                const SizedBox(height: CorvusSpacing.lg),
+                            ],
                           ],
-                        ],
-                      ),
-              ),
-            ],
+                        ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
       );
     });
   }
@@ -1435,64 +1452,62 @@ class _HoverNavLinkState extends State<_HoverNavLink> {
     // el toque (el menú "Más"): envolverlo en un GestureDetector opaco
     // absorbería el gesto y el menú nunca abriría.
     final label = Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedDefaultTextStyle(
-                    duration: CorvusMotion.fast,
-                    curve: CorvusMotion.standard,
-                    style: TextStyle(
-                      color: widget.selected
-                          ? Colors.white
-                          : hovered
-                              ? Colors.white.withValues(alpha: 0.88)
-                              : AppColors.textMuted,
-                      fontSize: 13.5,
-                      fontWeight:
-                          widget.selected ? FontWeight.w800 : FontWeight.w600,
-                      letterSpacing: -0.1,
-                    ),
-                    child: Text(widget.label),
-                  ),
-                  if (widget.trailing != null) ...[
-                    const SizedBox(width: 3),
-                    Icon(widget.trailing,
-                        size: 15,
-                        color: active
-                            ? Colors.white.withValues(alpha: 0.80)
-                            : AppColors.textMuted),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 6),
-              // Subrayado del acento: marca el destino activo sin recuadros.
-              AnimatedContainer(
-                duration: CorvusMotion.medium,
+              AnimatedDefaultTextStyle(
+                duration: CorvusMotion.fast,
                 curve: CorvusMotion.standard,
-                height: 2,
-                width: widget.selected ? 18 : (hovered ? 10 : 0),
-                decoration: BoxDecoration(
+                style: TextStyle(
                   color: widget.selected
-                      ? accent
-                      : accent.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(CorvusRadius.pill),
-                  boxShadow: widget.selected
-                      ? [
-                          BoxShadow(
-                            color: accent.withValues(alpha: 0.55),
-                            blurRadius: 8,
-                          ),
-                        ]
-                      : null,
+                      ? Colors.white
+                      : hovered
+                          ? Colors.white.withValues(alpha: 0.88)
+                          : AppColors.textMuted,
+                  fontSize: 13.5,
+                  fontWeight:
+                      widget.selected ? FontWeight.w800 : FontWeight.w600,
+                  letterSpacing: -0.1,
                 ),
+                child: Text(widget.label),
               ),
+              if (widget.trailing != null) ...[
+                const SizedBox(width: 3),
+                Icon(widget.trailing,
+                    size: 15,
+                    color: active
+                        ? Colors.white.withValues(alpha: 0.80)
+                        : AppColors.textMuted),
+              ],
             ],
           ),
-        );
+          const SizedBox(height: 6),
+          // Subrayado del acento: marca el destino activo sin recuadros.
+          AnimatedContainer(
+            duration: CorvusMotion.medium,
+            curve: CorvusMotion.standard,
+            height: 2,
+            width: widget.selected ? 18 : (hovered ? 10 : 0),
+            decoration: BoxDecoration(
+              color: widget.selected ? accent : accent.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(CorvusRadius.pill),
+              boxShadow: widget.selected
+                  ? [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.55),
+                        blurRadius: 8,
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -1516,8 +1531,13 @@ class _HoverNavLinkState extends State<_HoverNavLink> {
 class _BrandLogo extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
+  final bool showName;
 
-  const _BrandLogo({required this.onTap, this.compact = false});
+  const _BrandLogo({
+    required this.onTap,
+    this.compact = false,
+    this.showName = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1552,16 +1572,18 @@ class _BrandLogo extends StatelessWidget {
                 size: compact ? 15 : 16,
               ),
             ),
-            const SizedBox(width: 10),
-            Text(
-              compact ? 'Corvus' : 'Corvus Aeternum',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
+            if (showName) ...[
+              const SizedBox(width: 10),
+              Text(
+                compact ? 'Corvus' : 'Corvus Aeternum',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

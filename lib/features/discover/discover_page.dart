@@ -28,14 +28,16 @@ const _filterDisciplines = [
 ];
 
 class DiscoverPage extends StatefulWidget {
-  const DiscoverPage({super.key});
+  final WorkService? service;
+
+  const DiscoverPage({super.key, this.service});
 
   @override
   State<DiscoverPage> createState() => _DiscoverPageState();
 }
 
 class _DiscoverPageState extends State<DiscoverPage> {
-  final _workService = WorkService();
+  late final WorkService _workService;
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   String _selectedDiscipline = 'Todas';
@@ -53,6 +55,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
   @override
   void initState() {
     super.initState();
+    _workService = widget.service ?? WorkService();
     _search();
     _focusNode
         .addListener(() => setState(() => _isFocused = _focusNode.hasFocus));
@@ -92,10 +95,16 @@ class _DiscoverPageState extends State<DiscoverPage> {
   @override
   Widget build(BuildContext context) {
     final layout = CorvusLayout.of(context);
-    // La rejilla se decide por el ancho que le queda a cada tarjeta, no por
-    // umbrales sueltos: así una ventana de escritorio a media pantalla se
-    // comporta como la tableta que en realidad mide.
-    final columns = layout.gridColumns(target: 260, min: 1, max: 5);
+    // En teléfono, una sola portada ocupaba casi toda la altura visible. Dos
+    // columnas conservan el carácter editorial de la imagen y permiten
+    // comparar piezas sin convertir cada tarjeta en una página completa.
+    final compactGrid = layout.isCompact;
+    final columns = layout.gridColumns(
+      target: compactGrid ? 148 : 260,
+      min: compactGrid ? 2 : 1,
+      max: 5,
+    );
+    final cardAspectRatio = compactGrid ? 0.68 : 0.72;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -123,6 +132,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                   sliver: CorvusSkeletonGrid(
                     crossAxisCount: columns,
                     count: columns * 2,
+                    childAspectRatio: cardAspectRatio,
                   ).asSliver(),
                 )
               else if (_works.isEmpty)
@@ -151,17 +161,23 @@ class _DiscoverPageState extends State<DiscoverPage> {
               else ...[
                 SliverGrid(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => CorvusScrollReveal(
-                      index: index % columns,
-                      child: _DiscoverGridTile(work: _works[index]),
-                    ),
+                    (context, index) {
+                      final work = _works[index];
+                      return CorvusScrollReveal(
+                        index: index % columns,
+                        child: _DiscoverGridTile(
+                          key: ValueKey('discover-work-${work.id}'),
+                          work: work,
+                        ),
+                      );
+                    },
                     childCount: _works.length,
                   ),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: columns,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 0.72,
+                    childAspectRatio: cardAspectRatio,
                   ),
                 ),
                 // El cierre del archivo vivo. Quien ha llegado hasta abajo ya
@@ -379,7 +395,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   Widget _buildTrendingSection() {
     if (_searchQuery.isNotEmpty) return const SizedBox.shrink();
-    final trending = _works.take(5).toList();
+    final compact = CorvusLayout.of(context).isCompact;
+    final trendCount = compact ? 3 : 5;
+    final trending = _works.take(trendCount).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
@@ -403,7 +421,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
           ]),
           const SizedBox(height: 16),
           if (_isLoading)
-            ...List.generate(4, (_) => const _TrendingSkeleton())
+            ...List.generate(trendCount, (_) => const _TrendingSkeleton())
           else if (trending.isEmpty) ...[
             ...List.generate(3, (_) => const _TrendingSkeleton(ghost: true)),
             const SizedBox(height: 14),
@@ -738,7 +756,7 @@ class _TrendingSkeleton extends StatelessWidget {
 
 class _DiscoverGridTile extends StatefulWidget {
   final Work work;
-  const _DiscoverGridTile({required this.work});
+  const _DiscoverGridTile({super.key, required this.work});
 
   @override
   State<_DiscoverGridTile> createState() => _DiscoverGridTileState();

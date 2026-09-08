@@ -26,6 +26,8 @@ import '../../features/certificates/certificates_page.dart';
 import '../../features/notifications/notifications_page.dart';
 import '../../features/admin/admin_panel_page.dart';
 import '../../features/artists/artists_page.dart';
+import '../../features/ranking/ranking_page.dart';
+import '../../features/settings/settings_page.dart';
 import '../../features/conspiracies/conspiracies_registry_page.dart';
 import '../../features/glossary/glossary_page.dart';
 import '../../features/atelier/atelier_page.dart';
@@ -124,7 +126,8 @@ String? resolveAuthRedirect({
 
 /// El tramo autenticado sí necesita saber si el perfil está creado, y esa
 /// consulta es asíncrona.
-Future<String?> _redirectForSession(Session session, GoRouterState state) async {
+Future<String?> _redirectForSession(
+    Session session, GoRouterState state) async {
   final hasProfile =
       await ProfileService().getProfileById(session.user.id) != null;
 
@@ -164,12 +167,7 @@ GoRouter buildRouter() {
         path: '/',
         redirect: (_, __) => '/discover',
       ),
-      // Alias semánticos: no duplican pantalla, solo dan URL propia a lo que
-      // ya vive dentro de Autores y de Arena.
-      GoRoute(
-        path: '/ranking',
-        redirect: (_, __) => '/artists',
-      ),
+      // Alias semántico del espacio de desafíos.
       GoRoute(
         path: '/challenges',
         redirect: (_, __) => '/arena',
@@ -215,6 +213,12 @@ GoRouter buildRouter() {
             path: '/artists',
             pageBuilder: (_, __) => const NoTransitionPage(
               child: ArtistsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/ranking',
+            pageBuilder: (_, __) => const NoTransitionPage(
+              child: RankingPage(),
             ),
           ),
           GoRoute(
@@ -340,6 +344,12 @@ GoRouter buildRouter() {
                 builder: (_, __) => const EditProfilePage(),
               ),
             ],
+          ),
+          GoRoute(
+            path: '/settings',
+            pageBuilder: (_, __) => const NoTransitionPage(
+              child: SettingsPage(),
+            ),
           ),
         ],
       ),
