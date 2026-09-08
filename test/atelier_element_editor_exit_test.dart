@@ -1,4 +1,5 @@
 import 'package:corvus_aeternum/features/atelier/atelier_element_editor.dart';
+import 'package:corvus_aeternum/features/atelier/atelier_rich_text_editor.dart';
 import 'package:corvus_aeternum/models/atelier_models.dart';
 import 'package:corvus_aeternum/providers/atelier_provider.dart';
 import 'package:flutter/material.dart';
@@ -74,5 +75,36 @@ void main() {
     expect(find.text('Descartar cambios'), findsOneWidget);
     expect(find.text('Guardar y salir'), findsOneWidget);
     expect(find.text('Seguir editando'), findsOneWidget);
+  });
+
+  testWidgets('uses one visual writing page with left expandable menus',
+      (tester) async {
+    await pumpEditor(tester);
+
+    expect(find.text('Vista previa'), findsNothing);
+    expect(find.text('VISTA PREVIA EN TIEMPO REAL'), findsNothing);
+    expect(find.text('Dossier'), findsOneWidget);
+    expect(find.text('Flujo'), findsOneWidget);
+    expect(find.byKey(const ValueKey('atelier-element-rich-editor')),
+        findsOneWidget);
+
+    final bodyField = tester.widget<TextField>(
+      find.byKey(const ValueKey('atelier-element-rich-editor')),
+    );
+    expect(bodyField.controller, isA<AtelierRichTextController>());
+  });
+
+  testWidgets('offers alignment and concentration controls', (tester) async {
+    await pumpEditor(tester);
+
+    expect(find.byTooltip('Alinear a la izquierda'), findsOneWidget);
+    expect(find.byTooltip('Centrar'), findsOneWidget);
+    expect(find.byTooltip('Alinear a la derecha'), findsOneWidget);
+    expect(find.byTooltip('Justificar'), findsOneWidget);
+    expect(find.byTooltip('Modo concentración'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Modo concentración'));
+    await tester.pumpAndSettle();
+    expect(find.text('MODO CONCENTRACIÓN'), findsOneWidget);
   });
 }

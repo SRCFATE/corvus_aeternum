@@ -6,8 +6,7 @@ import '../../core/router/navigation_coordinator.dart';
 import '../../models/atelier_models.dart';
 import '../../providers/atelier_provider.dart';
 import '../../shared/widgets/corvus_tag_input.dart';
-import '../../shared/widgets/corvus_markdown_preview.dart';
-import '../../shared/widgets/formatted_manuscript_text.dart';
+import 'atelier_rich_text_editor.dart';
 
 const _statusLabels = <String, String>{
   'idea': 'Idea',
@@ -52,8 +51,10 @@ class AtelierElementEditor extends StatefulWidget {
 class _AtelierElementEditorState extends State<AtelierElementEditor> {
   late final TextEditingController _titleController =
       TextEditingController(text: widget.node?.title ?? '');
-  late final TextEditingController _bodyController =
-      TextEditingController(text: widget.node?.body ?? '');
+  late final AtelierRichTextController _bodyController =
+      AtelierRichTextController(text: widget.node?.body ?? '');
+  final FocusNode _bodyFocusNode = FocusNode();
+  final ScrollController _bodyScrollController = ScrollController();
 
   AtelierNode? _node;
   late String _kind = widget.node?.kind ?? widget.initialKind;
@@ -62,10 +63,12 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   late List<String> _tags = List.of(widget.node?.tags ?? const []);
   late String _internalDate = (widget.node?.metadata['date'] as String?) ?? '';
   late String _purpose = (widget.node?.metadata['purpose'] as String?) ?? '';
+  late TextAlign _textAlign =
+      atelierTextAlign(widget.node?.metadata['text_alignment']);
 
   bool _isDirty = false;
   bool _isSaving = false;
-  bool _previewMode = false;
+  bool _focusMode = false;
   DateTime? _lastSaved;
 
   String get _kindLabel => widget.kindLabels[_kind] ?? _kind;
@@ -110,7 +113,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     super.initState();
     _node = widget.node;
     _titleController.addListener(_markDirty);
-    _bodyController.addListener(_markDirty);
+    _bodyController.addListener(_handleBodyChanged);
     AppNavigationCoordinator.instance.registerExitGuard(
       this,
       _confirmNavigationExit,
@@ -123,11 +126,40 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     if (mounted) setState(() {});
   }
 
+  void _handleBodyChanged() {
+    _markDirty();
+    if (_focusMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
+    }
+  }
+
+  void _centerCaret() {
+    if (!_bodyScrollController.hasClients) return;
+    final selection = _bodyController.selection;
+    final caret = selection.isValid ? selection.extentOffset : 0;
+    final beforeCaret = _bodyController.text.substring(
+      0,
+      caret.clamp(0, _bodyController.text.length).toInt(),
+    );
+    final hardLines = RegExp(r'\n').allMatches(beforeCaret).length;
+    final wrappedLines = beforeCaret.length ~/ 72;
+    final target = ((hardLines + wrappedLines) * 31.0) - 250;
+    _bodyScrollController.animateTo(
+      target
+          .clamp(0, _bodyScrollController.position.maxScrollExtent)
+          .toDouble(),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   void dispose() {
     AppNavigationCoordinator.instance.unregisterExitGuard(this);
     _titleController.dispose();
     _bodyController.dispose();
+    _bodyFocusNode.dispose();
+    _bodyScrollController.dispose();
     super.dispose();
   }
 
@@ -143,6 +175,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           'purpose': _purpose.trim()
         else if (_node?.metadata.containsKey('purpose') ?? false)
           'purpose': null,
+        'text_alignment': atelierAlignmentName(_textAlign),
       }..removeWhere((_, value) => value == null);
 
   Future<bool> _save({String? statusOverride, bool silent = false}) async {
@@ -154,6 +187,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         : _titleController.text.trim();
     final status = statusOverride ?? _status;
     final provider = context.read<AtelierProvider>();
+    var publicationLinked = false;
+    var publicationSynced = false;
 
     try {
       if (_node == null) {
@@ -169,8 +204,20 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           metadata: _buildMetadata(),
         );
         _node = created;
+        final workId =
+            (provider.activeProject?.metadata['publication_work_id'] as String?)
+                    ?.trim() ??
+                '';
+        publicationLinked = workId.isNotEmpty;
+        if (publicationLinked) {
+          try {
+            publicationSynced = await provider.syncPublication() != null;
+          } catch (_) {
+            publicationSynced = false;
+          }
+        }
       } else {
-        await provider.updateNode(
+        final result = await provider.updateNode(
           _node!.copyWith(
             kind: _kind,
             title: title,
@@ -181,6 +228,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             metadata: _buildMetadata(),
           ),
         );
+        publicationLinked = result.publicationLinked;
+        publicationSynced = result.publicationSynced;
         _node = provider.nodeById(_node!.id) ?? _node;
       }
 
@@ -191,7 +240,15 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         _isSaving = false;
         _lastSaved = DateTime.now();
       });
-      if (!silent) _showMessage('Guardado');
+      if (!silent) {
+        _showMessage(
+          !publicationLinked
+              ? 'Guardado'
+              : publicationSynced
+                  ? 'Guardado y publicación actualizada'
+                  : 'Guardado. No se pudo actualizar la publicación',
+        );
+      }
       return true;
     } catch (error) {
       if (!mounted) return false;
@@ -373,90 +430,56 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     ));
   }
 
-  void _insertTextAtSelection(String text, {int? cursorOffset}) {
-    final value = _bodyController.value;
-    final selection = value.selection;
-    final start = selection.isValid ? selection.start : value.text.length;
-    final end = selection.isValid ? selection.end : value.text.length;
-    final nextText = value.text.replaceRange(start, end, text);
-    final offset = start + (cursorOffset ?? text.length);
-    _bodyController.value = TextEditingValue(
-      text: nextText,
-      selection: TextSelection.collapsed(
-        offset: offset.clamp(0, nextText.length).toInt(),
-      ),
-    );
+  void _format(VoidCallback action) {
+    action();
+    _bodyFocusNode.requestFocus();
   }
 
   void _insertWikilink() {
-    final value = _bodyController.value;
-    final selection = value.selection;
-    if (selection.isValid && !selection.isCollapsed) {
-      final selected = selection.textInside(value.text);
-      _insertTextAtSelection('[[$selected]]');
-      return;
-    }
-    _insertTextAtSelection('[[]]', cursorOffset: 2);
+    _format(() => _bodyController.toggleInline('[[', ']]'));
   }
 
   void _insertSceneBreak() {
-    final prefix = _bodyController.text.endsWith('\n') ? '\n' : '\n\n';
-    _insertTextAtSelection('$prefix***\n\n');
-  }
-
-  void _wrapSelection(String prefix, String suffix, String fallback) {
-    final value = _bodyController.value;
-    final selection = value.selection;
-    if (selection.isValid && !selection.isCollapsed) {
-      final selected = selection.textInside(value.text);
-      _insertTextAtSelection('$prefix$selected$suffix');
-      return;
-    }
-    _insertTextAtSelection(
-      '$prefix$fallback$suffix',
-      cursorOffset: prefix.length + fallback.length,
-    );
-  }
-
-  void _prefixCurrentLine(String prefix, {String fallback = 'Texto'}) {
-    final value = _bodyController.value;
-    final cursor = value.selection.isValid
-        ? value.selection.baseOffset.clamp(0, value.text.length).toInt()
-        : value.text.length;
-    final lineStart = value.text.lastIndexOf('\n', cursor - 1) + 1;
-    final lineEndIndex = value.text.indexOf('\n', cursor);
-    final lineEnd = lineEndIndex == -1 ? value.text.length : lineEndIndex;
-    final line = value.text.substring(lineStart, lineEnd);
-    final replacement =
-        line.trim().isEmpty ? '$prefix$fallback' : '$prefix$line';
-    final nextText = value.text.replaceRange(lineStart, lineEnd, replacement);
-    _bodyController.value = TextEditingValue(
-      text: nextText,
-      selection: TextSelection.collapsed(
-        offset:
-            (lineStart + replacement.length).clamp(0, nextText.length).toInt(),
-      ),
-    );
+    _format(_bodyController.insertSeparator);
   }
 
   void _insertHeading(int level) {
-    _prefixCurrentLine(level == 1 ? '# ' : '## ', fallback: 'Encabezado');
+    _format(() => _bodyController.toggleBlock(level == 1 ? '# ' : '## '));
   }
 
   void _insertBold() {
-    _wrapSelection('**', '**', 'texto importante');
+    _format(() => _bodyController.toggleInline('**'));
   }
 
   void _insertItalic() {
-    _wrapSelection('*', '*', 'énfasis');
+    _format(() => _bodyController.toggleInline('*'));
   }
 
   void _insertQuote() {
-    _prefixCurrentLine('> ', fallback: 'Cita o nota de voz narrativa');
+    _format(() => _bodyController.toggleBlock('> '));
   }
 
   void _insertListItem() {
-    _prefixCurrentLine('- ', fallback: 'Punto de lista');
+    _format(() => _bodyController.toggleBlock('• '));
+  }
+
+  void _setAlignment(TextAlign alignment) {
+    if (_textAlign == alignment) return;
+    setState(() {
+      _textAlign = alignment;
+      _isDirty = true;
+    });
+    _bodyFocusNode.requestFocus();
+  }
+
+  void _toggleFocusMode() {
+    final next = !_focusMode;
+    _bodyController.focusMode = next;
+    setState(() => _focusMode = next);
+    _bodyFocusNode.requestFocus();
+    if (next) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
+    }
   }
 
   Future<void> _changeStatus(String status) async {
@@ -601,9 +624,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           child: Column(
             children: [
               _buildTopBar(compact),
-              Expanded(
-                child: _previewMode ? _buildPreview() : _buildEditor(),
-              ),
+              Expanded(child: _buildEditor()),
             ],
           ),
         ),
@@ -687,15 +708,6 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             label: 'Guardar',
             compact: compact,
             onTap: _isSaving ? null : () => _save(),
-          ),
-          const SizedBox(width: 8),
-          _ActionButton(
-            icon:
-                _previewMode ? Icons.edit_outlined : Icons.visibility_outlined,
-            label: _previewMode ? 'Editor' : 'Vista previa',
-            compact: compact,
-            active: _previewMode,
-            onTap: () => setState(() => _previewMode = !_previewMode),
           ),
           const SizedBox(width: 8),
           _ActionButton(
@@ -806,12 +818,23 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _buildWritingCanvas(compact: false)),
+                      SizedBox(
+                        width: 280,
+                        child: SingleChildScrollView(
+                          child: _buildInspectorPanel(),
+                        ),
+                      ),
                       const SizedBox(width: 22),
-                      SizedBox(width: 312, child: _buildInspectorPanel()),
+                      Expanded(child: _buildWritingCanvas(compact: false)),
                     ],
                   )
-                : _buildWritingCanvas(compact: true),
+                : Column(
+                    children: [
+                      _buildCompactInspectorMenu(),
+                      const SizedBox(height: 12),
+                      Expanded(child: _buildWritingCanvas(compact: true)),
+                    ],
+                  ),
           ),
         );
       },
@@ -824,11 +847,9 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         constraints: const BoxConstraints(maxWidth: 860),
         child: Column(
           children: [
-            _buildDocumentHeader(compact),
-            const SizedBox(height: 12),
             _buildInlineTools(compact),
             const SizedBox(height: 12),
-            Expanded(child: _buildBodySurface()),
+            Expanded(child: _buildBodySurface(compact: compact)),
           ],
         ),
       ),
@@ -836,22 +857,9 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   }
 
   Widget _buildDocumentHeader(bool compact) {
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding:
-          EdgeInsets.fromLTRB(compact ? 18 : 28, 20, compact ? 18 : 28, 22),
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.24),
-            blurRadius: 28,
-            offset: const Offset(0, 16),
-          ),
-        ],
-      ),
+          EdgeInsets.fromLTRB(compact ? 24 : 52, 28, compact ? 24 : 52, 18),
       child: Column(
         children: [
           Wrap(
@@ -983,108 +991,136 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             compact: compact,
             onTap: _insertSceneBreak,
           ),
-          if (!compact)
-            _InlineHint(
-              text:
-                  'Formato: # título, **negrita**, *cursiva*, > cita, - lista y [[vínculos]].',
-            ),
+          _ToolButton(
+            icon: Icons.format_align_left_rounded,
+            label: 'Izquierda',
+            tooltip: 'Alinear a la izquierda',
+            compact: compact,
+            active: _textAlign == TextAlign.left,
+            onTap: () => _setAlignment(TextAlign.left),
+          ),
+          _ToolButton(
+            icon: Icons.format_align_center_rounded,
+            label: 'Centrar',
+            tooltip: 'Centrar',
+            compact: compact,
+            active: _textAlign == TextAlign.center,
+            onTap: () => _setAlignment(TextAlign.center),
+          ),
+          _ToolButton(
+            icon: Icons.format_align_right_rounded,
+            label: 'Derecha',
+            tooltip: 'Alinear a la derecha',
+            compact: compact,
+            active: _textAlign == TextAlign.right,
+            onTap: () => _setAlignment(TextAlign.right),
+          ),
+          _ToolButton(
+            icon: Icons.format_align_justify_rounded,
+            label: 'Justificar',
+            tooltip: 'Justificar',
+            compact: compact,
+            active: _textAlign == TextAlign.justify,
+            onTap: () => _setAlignment(TextAlign.justify),
+          ),
+          _ToolButton(
+            icon: Icons.center_focus_strong_rounded,
+            label: 'Concentración',
+            tooltip: 'Modo concentración',
+            compact: compact,
+            active: _focusMode,
+            onTap: _toggleFocusMode,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildBodySurface() {
+  Widget _buildBodySurface({required bool compact}) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFF120D17),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 30,
+            offset: const Offset(0, 18),
+          ),
+        ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final sideBySide = constraints.maxWidth >= 720;
-          final editor = _buildLiveEditorPane();
-          final preview = _buildLivePreviewPane();
-          if (sideBySide) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: editor),
-                Container(
-                  width: 1,
-                  color: Colors.white.withValues(alpha: 0.08),
+      child: Column(
+        children: [
+          _buildDocumentHeader(compact),
+          if (_focusMode)
+            Container(
+              margin: EdgeInsets.symmetric(horizontal: compact ? 24 : 52),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.22),
                 ),
-                Expanded(child: preview),
-              ],
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: editor),
-              Container(
-                height: 1,
-                color: Colors.white.withValues(alpha: 0.08),
               ),
-              Expanded(child: preview),
-            ],
-          );
-        },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.center_focus_strong_rounded,
+                      size: 14, color: AppColors.primaryLight),
+                  SizedBox(width: 7),
+                  Text(
+                    'MODO CONCENTRACIÓN',
+                    style: TextStyle(
+                      color: AppColors.primaryLight,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Expanded(child: _buildLiveEditorPane(compact: compact)),
+        ],
       ),
     );
   }
 
-  Widget _buildLiveEditorPane() {
-    return Stack(
-      children: [
-        Positioned(
-          left: 34,
-          top: 0,
-          bottom: 0,
-          child: Container(
-            width: 1,
-            color: AppColors.primary.withValues(alpha: 0.12),
-          ),
+  Widget _buildLiveEditorPane({required bool compact}) {
+    return TextField(
+      key: const ValueKey('atelier-element-rich-editor'),
+      controller: _bodyController,
+      focusNode: _bodyFocusNode,
+      scrollController: _bodyScrollController,
+      maxLines: null,
+      expands: true,
+      textAlign: _textAlign,
+      textAlignVertical: TextAlignVertical.top,
+      style: TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: compact ? 16 : 17,
+        height: 1.95,
+      ),
+      decoration: InputDecoration(
+        hintText:
+            'Comienza a escribir. El formato aparecerá directamente en la página.',
+        hintStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.24),
+          fontSize: compact ? 15 : 16,
+          height: 1.9,
         ),
-        TextField(
-          controller: _bodyController,
-          maxLines: null,
-          expands: true,
-          textAlignVertical: TextAlignVertical.top,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 16,
-            height: 1.85,
-          ),
-          decoration: InputDecoration(
-            hintText:
-                'Empieza a escribir. Usa # titulos, **negrita**, *cursiva*, > citas, - listas y [[vinculos]].',
-            hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.24),
-              fontSize: 15,
-              height: 1.8,
-            ),
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.fromLTRB(54, 30, 32, 52),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLivePreviewPane() {
-    return ColoredBox(
-      color: Colors.black.withValues(alpha: 0.12),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
-        child: CorvusMarkdownPreview(
-          text: _bodyController.text,
-          title: 'Vista previa en tiempo real',
-          showWhenEmpty: true,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: EdgeInsets.fromLTRB(
+          compact ? 24 : 64,
+          22,
+          compact ? 24 : 64,
+          72,
         ),
       ),
     );
@@ -1093,27 +1129,11 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   Widget _buildInspectorPanel() {
     return Column(
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppColors.card.withValues(alpha: 0.70),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
+        _EditorSidebarSection(
+          icon: Icons.menu_book_outlined,
+          title: 'Dossier',
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'DOSSIER',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.4,
-                ),
-              ),
-              const SizedBox(height: 16),
               _InspectorRow(label: 'Tipo', value: _kindLabel),
               _InspectorRow(
                 label: 'Estado',
@@ -1126,10 +1146,10 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
               ),
               if (_internalDate.trim().isNotEmpty)
                 _InspectorRow(label: 'Fecha interna', value: _internalDate),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 7,
+                runSpacing: 7,
                 children: [
                   _StatCapsule(label: 'Palabras', value: '$_wordCount'),
                   _StatCapsule(label: 'Caracteres', value: '$_characterCount'),
@@ -1137,7 +1157,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 ],
               ),
               if (_tags.isNotEmpty) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Wrap(
                   spacing: 7,
                   runSpacing: 7,
@@ -1147,7 +1167,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 ),
               ],
               if (_purpose.trim().isNotEmpty) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Text(
                   _purpose,
                   maxLines: 4,
@@ -1159,7 +1179,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                   ),
                 ),
               ],
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               _PanelButton(
                 icon: Icons.tune_rounded,
                 label: 'Editar detalles',
@@ -1168,28 +1188,12 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-          ),
+        const SizedBox(height: 10),
+        _EditorSidebarSection(
+          icon: Icons.account_tree_outlined,
+          title: 'Flujo',
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'FLUJO',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.38),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.3,
-                ),
-              ),
-              const SizedBox(height: 12),
               _StatusOption(
                 label: 'Borrador',
                 selected: _status == 'draft',
@@ -1217,134 +1221,73 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     );
   }
 
-  // ─── Vista previa ────────────────────────────────────────────────────────────
+  Widget _buildCompactInspectorMenu() => _buildInspectorPanel();
+}
 
-  Widget _buildPreview() {
-    final title = _titleController.text.trim();
-    final body = _bodyController.text;
+// ─── Componentes ──────────────────────────────────────────────────────────────
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.primaryMuted.withValues(alpha: 0.14),
-            AppColors.background,
-          ],
+class _EditorSidebarSection extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  const _EditorSidebarSection({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: Material(
+        color: AppColors.card.withValues(alpha: 0.72),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
-      ),
-      child: SingleChildScrollView(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 860),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 32, 28, 88),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(52, 44, 52, 58),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF120D17),
-                  borderRadius: BorderRadius.circular(24),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.28),
-                      blurRadius: 32,
-                      offset: const Offset(0, 18),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _DocumentChip(
-                            icon: Icons.category_outlined,
-                            label: _kindLabel.toUpperCase(),
-                            color: AppColors.primary,
-                          ),
-                          _DocumentChip(
-                            icon: Icons.schedule_rounded,
-                            label: '$_readingMinutes MIN',
-                            color: AppColors.gold,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Center(
-                      child: Text(
-                        title.isEmpty ? 'Sin título' : title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: title.isEmpty
-                              ? Colors.white.withValues(alpha: 0.25)
-                              : AppColors.textPrimary,
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          height: 1.1,
-                          fontStyle: title.isEmpty
-                              ? FontStyle.italic
-                              : FontStyle.normal,
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Container(
-                        width: 52,
-                        height: 3,
-                        margin: const EdgeInsets.only(top: 18, bottom: 42),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                      ),
-                    ),
-                    if (body.trim().isEmpty)
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.035),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08)),
-                          ),
-                          child: Text(
-                            'Aún no hay contenido que previsualizar.',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.36),
-                              fontSize: 14,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      FormattedManuscriptText(
-                        text: body,
-                        fontSize: 17,
-                        lineHeight: 1.95,
-                      ),
-                  ],
-                ),
-              ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          key: PageStorageKey<String>('atelier-editor-$title'),
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+          leading: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, size: 17, color: AppColors.primaryLight),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
             ),
           ),
+          subtitle: Text(
+            title == 'Dossier'
+                ? 'Detalles y estadísticas'
+                : 'Estado de la escritura',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.34),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          iconColor: AppColors.primaryLight,
+          collapsedIconColor: Colors.white.withValues(alpha: 0.42),
+          children: [child],
         ),
       ),
     );
   }
 }
-
-// ─── Componentes ──────────────────────────────────────────────────────────────
 
 class _EditorMetric extends StatelessWidget {
   final IconData icon;
@@ -1493,7 +1436,9 @@ class _DocumentChip extends StatelessWidget {
 class _ToolButton extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? tooltip;
   final bool compact;
+  final bool active;
   final VoidCallback onTap;
 
   const _ToolButton({
@@ -1501,59 +1446,57 @@ class _ToolButton extends StatelessWidget {
     required this.label,
     required this.compact,
     required this.onTap,
+    this.tooltip,
+    this.active = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.045),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: AppColors.textSecondary),
-              if (!compact) ...[
-                const SizedBox(width: 7),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.62),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
+    return Tooltip(
+      message: tooltip ?? label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColors.primary.withValues(alpha: 0.16)
+                  : Colors.white.withValues(alpha: 0.045),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: active
+                    ? AppColors.primary.withValues(alpha: 0.42)
+                    : Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color:
+                      active ? AppColors.primaryLight : AppColors.textSecondary,
                 ),
+                if (!compact) ...[
+                  const SizedBox(width: 7),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: active
+                          ? AppColors.primaryLight
+                          : Colors.white.withValues(alpha: 0.62),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineHint extends StatelessWidget {
-  final String text;
-
-  const _InlineHint({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 9),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.32),
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1786,7 +1729,6 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool filled;
-  final bool active;
   final bool compact;
   final VoidCallback? onTap;
 
@@ -1795,7 +1737,6 @@ class _ActionButton extends StatelessWidget {
     required this.label,
     required this.compact,
     this.filled = false,
-    this.active = false,
     this.onTap,
   });
 
@@ -1804,9 +1745,7 @@ class _ActionButton extends StatelessWidget {
     final disabled = onTap == null;
     final fg = filled
         ? Colors.white
-        : active
-            ? AppColors.primary
-            : Colors.white.withValues(alpha: disabled ? 0.25 : 0.62);
+        : Colors.white.withValues(alpha: disabled ? 0.25 : 0.62);
 
     return GestureDetector(
       onTap: onTap,
@@ -1820,16 +1759,12 @@ class _ActionButton extends StatelessWidget {
                 ? (disabled
                     ? AppColors.primary.withValues(alpha: 0.35)
                     : AppColors.primary)
-                : active
-                    ? AppColors.primary.withValues(alpha: 0.10)
-                    : Colors.white.withValues(alpha: 0.04),
+                : Colors.white.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(99),
             border: Border.all(
               color: filled
                   ? Colors.transparent
-                  : active
-                      ? AppColors.primary.withValues(alpha: 0.40)
-                      : Colors.white.withValues(alpha: 0.10),
+                  : Colors.white.withValues(alpha: 0.10),
             ),
           ),
           child: Row(
@@ -1983,10 +1918,6 @@ class _EditorTextField extends StatelessWidget {
         ),
       ],
     );
-    return CorvusMarkdownFieldPreview(
-      controller: controller,
-      enabled: maxLines > 1,
-      child: field,
-    );
+    return field;
   }
 }
