@@ -362,7 +362,8 @@ class FormattedManuscriptText extends StatelessWidget {
         };
         continue;
       }
-      if (trimmed == '***' || trimmed == '---' || trimmed == '⁂') {
+      if (RegExp(r'^(?:\*{3,}|\* \* \*|-{3,}|- - -|_{3,}|_ _ _|⁂)$')
+          .hasMatch(trimmed)) {
         flushParagraph();
         blocks.add(_ManuscriptBlock(
           _BlockKind.divider,

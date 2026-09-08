@@ -22,6 +22,39 @@ void main() {
       expect(chapters[2].title, 'Chapter Two');
       expect(chapters[2].content, 'Body two');
     });
+
+    test('keeps internal headings inside explicit Corvus chapters', () {
+      final chapters = parseWorkChapters(
+        '<!-- corvus-chapter -->\n'
+        '# Prólogo\n\n'
+        '<!-- corvus-align:center -->\n'
+        '## Con los ojos vendados\n\n'
+        'Texto del capítulo.\n\n'
+        '<!-- corvus-chapter -->\n'
+        '# Capítulo siguiente\n\n'
+        'Continuación.',
+      );
+
+      expect(chapters, hasLength(2));
+      expect(chapters.first.title, 'Prólogo');
+      expect(chapters.first.content, contains('## Con los ojos vendados'));
+      expect(chapters.last.title, 'Capítulo siguiente');
+    });
+
+    test('treats H2 as internal content when an H1 chapter exists', () {
+      final chapters = parseWorkChapters(
+        '# Prologo\n\n'
+        '<!-- corvus-align:left -->\n'
+        '<!-- corvus-align:center -->\n'
+        '## Con los ojos vendados\n\n'
+        'Texto del capítulo.',
+      );
+
+      expect(chapters, hasLength(1));
+      expect(chapters.single.title, 'Prologo');
+      expect(chapters.single.content, contains('## Con los ojos vendados'));
+      expect(chapters.single.preview, startsWith('Con los ojos vendados'));
+    });
   });
 
   group('WorkChapter', () {
@@ -39,6 +72,18 @@ void main() {
 
       expect(chapter.preview.length, lessThanOrEqualTo(141));
       expect(chapter.preview, endsWith('\u2026'));
+    });
+
+    test('hides internal layout markers from previews and word counts', () {
+      const chapter = WorkChapter(
+        title: 'Prólogo',
+        content: '<!-- corvus-align:left -->\n'
+            '<!-- corvus-align:center -->\n'
+            'Texto visible',
+      );
+
+      expect(chapter.preview, 'Texto visible');
+      expect(chapter.wordCount, 2);
     });
   });
 

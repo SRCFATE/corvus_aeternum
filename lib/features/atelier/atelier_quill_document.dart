@@ -63,11 +63,16 @@ List<Map<String, dynamic>> atelierQuillDeltaJson(QuillController controller) {
 
 String atelierQuillToMarkdown(QuillController controller) {
   final delta = controller.document.toDelta();
-  final alignments = _deltaLineAlignments(delta.toJson());
+  final lines = _deltaDocumentLines(delta.toJson());
+  final firstAlignment = _nextNonEmptyAlignment(lines, 0) ?? 'left';
   var completedLines = 0;
+  var activeAlignment = firstAlignment;
 
   final converter = DeltaToMarkdown(
     customContentHandler: DeltaToMarkdown.escapeSpecialCharactersRelaxed,
+    customEmbedHandlers: {
+      'divider': (_, output) => output.write('⁂'),
+    },
     customTextAttrsHandlers: {
       Attribute.underline.key: CustomAttributeHandler(
         beforeContent: (_, __, output) => output.write('<u>'),
@@ -91,21 +96,28 @@ String atelierQuillToMarkdown(QuillController controller) {
         ..writeln()
         ..writeln();
       completedLines++;
-      if (completedLines < alignments.length) {
-        output.writeln(_alignmentMarker(alignments[completedLines]));
+      final nextAlignment = _nextNonEmptyAlignment(lines, completedLines);
+      if (nextAlignment != null && nextAlignment != activeAlignment) {
+        output.writeln(_alignmentMarker(nextAlignment));
+        activeAlignment = nextAlignment;
       }
     },
   );
 
-  final markdown = converter.convert(delta).trimRight();
+  var markdown = converter.convert(delta).trimRight();
   if (markdown.isEmpty) return '';
-  final firstAlignment = alignments.isEmpty ? 'left' : alignments.first;
-  return '${_alignmentMarker(firstAlignment)}\n$markdown';
+  if (firstAlignment != 'left') {
+    markdown = '${_alignmentMarker(firstAlignment)}\n$markdown';
+  }
+  return markdown;
 }
 
 String atelierPrimaryAlignment(QuillController controller) {
-  final alignments =
-      _deltaLineAlignments(controller.document.toDelta().toJson()).toSet();
+  final alignments = _deltaDocumentLines(controller.document.toDelta().toJson())
+      .where((line) => line.text.trim().isNotEmpty)
+      .map((line) => line.alignment)
+      .toSet();
+  if (alignments.isEmpty) return 'left';
   return alignments.length == 1 ? alignments.first : 'mixed';
 }
 
@@ -164,21 +176,42 @@ void _applyLineAlignments(
   }
 }
 
-List<String> _deltaLineAlignments(List<dynamic> operations) {
-  final result = <String>[];
+List<({String text, String alignment})> _deltaDocumentLines(
+  List<dynamic> operations,
+) {
+  final result = <({String text, String alignment})>[];
+  final current = StringBuffer();
   for (final rawOperation in operations) {
     if (rawOperation is! Map) continue;
     final inserted = rawOperation['insert'];
-    if (inserted is! String || !inserted.contains('\n')) continue;
     final attributes = rawOperation['attributes'];
     final alignment = attributes is Map
         ? _alignmentName(attributes[Attribute.align.key])
         : 'left';
+    if (inserted is! String) {
+      current.write('\uFFFC');
+      continue;
+    }
     for (var index = 0; index < inserted.length; index++) {
-      if (inserted.codeUnitAt(index) == 10) result.add(alignment);
+      if (inserted.codeUnitAt(index) == 10) {
+        result.add((text: current.toString(), alignment: alignment));
+        current.clear();
+      } else {
+        current.writeCharCode(inserted.codeUnitAt(index));
+      }
     }
   }
   return result;
+}
+
+String? _nextNonEmptyAlignment(
+  List<({String text, String alignment})> lines,
+  int start,
+) {
+  for (var index = start; index < lines.length; index++) {
+    if (lines[index].text.trim().isNotEmpty) return lines[index].alignment;
+  }
+  return null;
 }
 
 int _lineCount(String value) {

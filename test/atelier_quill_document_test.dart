@@ -23,6 +23,18 @@ void main() {
     expect(style.attributes[quill.Attribute.bold.key]?.value, isTrue);
   });
 
+  test('migrates a Markdown scene divider as one visual ornament', () {
+    final controller = createAtelierQuillController(
+      body: 'Antes\n\n***\n\nDespués',
+      metadata: const {},
+    );
+    addTearDown(controller.dispose);
+
+    final markdown = atelierQuillToMarkdown(controller);
+    expect(markdown, contains('\n⁂\n'));
+    expect(markdown, isNot(contains('- - -')));
+  });
+
   test('combines inline formats on the same selected segment', () {
     final controller = createAtelierQuillController(
       body: 'Texto combinado',
@@ -50,6 +62,16 @@ void main() {
     expect(markdown, contains('**'));
     expect(markdown, contains('_'));
     expect(markdown, contains('<u>'));
+  });
+
+  test('does not persist redundant markers for left-aligned text', () {
+    final controller = createAtelierQuillController(
+      body: 'Primer párrafo\n\nSegundo párrafo',
+      metadata: const {},
+    );
+    addTearDown(controller.dispose);
+
+    expect(atelierQuillToMarkdown(controller), isNot(contains('corvus-align')));
   });
 
   test('stores alignment independently for selected paragraphs', () {

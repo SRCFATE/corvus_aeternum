@@ -4,6 +4,7 @@ import 'package:corvus_aeternum/models/atelier_models.dart';
 import 'package:corvus_aeternum/providers/atelier_provider.dart';
 import 'package:corvus_aeternum/services/atelier_service.dart';
 import 'package:corvus_aeternum/shared/widgets/formatted_manuscript_text.dart';
+import 'package:corvus_aeternum/features/work/work_reading_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,6 +32,18 @@ void main() {
 
     expect(body, contains('<!-- corvus-align:justify -->'));
     expect(body, contains('# Prologo'));
+  });
+
+  test('published node boundaries do not split its internal headings', () {
+    final body = composeAtelierPublicationText([
+      _node(body: '## Con los ojos vendados\n\nTexto narrativo.'),
+    ]);
+    final chapters = parseWorkChapters(body);
+
+    expect(body, startsWith('<!-- corvus-chapter -->'));
+    expect(chapters, hasLength(1));
+    expect(chapters.single.title, 'Prologo');
+    expect(chapters.single.content, contains('## Con los ojos vendados'));
   });
 
   testWidgets('visual controller renders formatted text inside an editor',
@@ -87,6 +100,23 @@ void main() {
     expect(underlined?.style?.decoration, TextDecoration.underline);
   });
 
+  testWidgets('reader renders legacy horizontal rules without visible markup',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Material(
+          child: FormattedManuscriptText(
+            text: 'Antes\n\n- - -\n\nDespués',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('- - -'), findsNothing);
+    expect(find.text('Antes'), findsOneWidget);
+    expect(find.text('Después'), findsOneWidget);
+  });
+
   test('marking a linked chapter done updates its published work', () async {
     final node = _node();
     final project = _project(
@@ -126,14 +156,17 @@ TextSpan? _spanWithText(InlineSpan span, String value) {
   return null;
 }
 
-AtelierNode _node({Map<String, dynamic> metadata = const {}}) {
+AtelierNode _node({
+  Map<String, dynamic> metadata = const {},
+  String body = 'Texto original',
+}) {
   return AtelierNode(
     id: 'node-1',
     projectId: 'project-1',
     profileId: 'profile-1',
     kind: 'chapter',
     title: 'Prologo',
-    body: 'Texto original',
+    body: body,
     status: 'active',
     canonStatus: 'canon',
     visibility: 'private',

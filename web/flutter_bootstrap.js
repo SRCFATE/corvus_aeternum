@@ -4,7 +4,7 @@
 // Esta URL nueva saca a quienes todavía conserven el paquete inmutable de la
 // versión anterior. A partir de aquí `main.dart.js` se revalida con el origen,
 // por lo que los siguientes despliegues ya no dependen de cambiar esta clave.
-const corvusBuildVersion = '20260908-wysiwyg-v1';
+const corvusBuildVersion = '20260908-reader-v2';
 for (const build of _flutter.buildConfig.builds) {
   if (build.mainJsPath) {
     build.mainJsPath = `${build.mainJsPath}?v=${corvusBuildVersion}`;
