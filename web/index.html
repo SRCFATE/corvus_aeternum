@@ -179,7 +179,10 @@
     // guardada coincide con la vigente, no se toca nada y el navegador sirve
     // el paquete que ya tiene.
     (async () => {
-      const cacheVersion = 'corvus-web-20260907-mobile-v2';
+      // Esta clave cambia cuando se modifica la estrategia de entrega. Obliga
+      // a retirar el service worker y las cachés que todavía pudieran estar
+      // sirviendo el paquete inmutable de la versión anterior.
+      const cacheVersion = 'corvus-web-20260907-atelier-v3';
       const versionKey = 'corvus-build';
 
       const boot = () => {

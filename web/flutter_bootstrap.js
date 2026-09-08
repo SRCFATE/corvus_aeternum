@@ -1,11 +1,10 @@
 {{flutter_js}}
 {{flutter_build_config}}
 
-// La versión viaja en la URL de `main.dart.js`, de modo que un despliegue
-// nuevo estrena dirección y el navegador no puede servir el anterior desde la
-// caché. Al revés: mientras la versión no cambie, sí puede servirlo, que es
-// justo lo que se busca.
-const corvusBuildVersion = '20260907-experiencia';
+// Esta URL nueva saca a quienes todavía conserven el paquete inmutable de la
+// versión anterior. A partir de aquí `main.dart.js` se revalida con el origen,
+// por lo que los siguientes despliegues ya no dependen de cambiar esta clave.
+const corvusBuildVersion = '20260907-atelier-v3';
 for (const build of _flutter.buildConfig.builds) {
   if (build.mainJsPath) {
     build.mainJsPath = `${build.mainJsPath}?v=${corvusBuildVersion}`;

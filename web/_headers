@@ -51,13 +51,11 @@
 /flutter_bootstrap.js
   Cache-Control: public, max-age=0, must-revalidate
 
-# El paquete de la aplicación sí se cachea de verdad. Se pide siempre con
-# `?v=<compilación>`, y el navegador guarda por URL completa: al desplegar,
-# la dirección cambia y la copia antigua deja de usarse sola. Este es el
-# cambio que hace que la segunda visita no vuelva a descargar varios
-# megabytes.
+# El paquete se conserva localmente, pero se revalida antes de reutilizarlo.
+# Así una visita repetida puede recibir un 304 ligero y, a la vez, cada
+# despliegue queda visible aunque nadie recuerde actualizar una clave manual.
 /main.dart.js
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
 
 # El motor gráfico solo cambia al cambiar de versión de Flutter. Un día de
 # caché con revalidación en segundo plano: rápido y sin quedarse atrás.
