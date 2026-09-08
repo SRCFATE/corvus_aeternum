@@ -364,7 +364,9 @@ class AtelierProvider extends ChangeNotifier {
     return node;
   }
 
-  Future<void> updateNode(AtelierNode node) async {
+  Future<({bool publicationLinked, bool publicationSynced})> updateNode(
+    AtelierNode node,
+  ) async {
     final updated = await _service.updateNode(node);
     final updatedNodes = nodes
         .map((current) => current.id == updated.id ? updated : current)
@@ -377,6 +379,27 @@ class AtelierProvider extends ChangeNotifier {
       versions: versions,
     );
     notifyListeners();
+
+    final workId =
+        (activeProject?.metadata['publication_work_id'] as String?)?.trim();
+    final publicationLinked = workId?.isNotEmpty == true;
+    if (!publicationLinked) {
+      return (publicationLinked: false, publicationSynced: false);
+    }
+    try {
+      final result = await _service.syncPublishedWork(
+        project: activeProject!,
+        nodes: updatedNodes,
+        relations: relations,
+        versions: versions,
+      );
+      return (
+        publicationLinked: true,
+        publicationSynced: result != null,
+      );
+    } catch (_) {
+      return (publicationLinked: true, publicationSynced: false);
+    }
   }
 
   Future<void> deleteNode(String profileId, AtelierNode node) async {

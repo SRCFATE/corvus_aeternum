@@ -13,11 +13,11 @@ import '../../providers/auth_provider.dart';
 import '../../providers/conspiration_provider.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
-import '../../shared/widgets/corvus_markdown_preview.dart';
 import 'billing/presentation/export_sheet.dart';
 import 'billing/widgets/plan_badge.dart';
 import 'billing/widgets/usage_indicator.dart';
 import 'atelier_catalog.dart';
+import 'atelier_rich_text_editor.dart';
 import 'atelier_ui.dart';
 import 'atelier_element_editor.dart';
 import 'atelier_review_workspace.dart';
@@ -62,7 +62,6 @@ extension _AtelierSectionMeta on _AtelierSection {
         _AtelierSection.publicacion => Icons.rocket_launch_outlined,
       };
 }
-
 
 class AtelierPage extends StatefulWidget {
   final Map<String, dynamic>? initialProject;
@@ -2201,7 +2200,8 @@ class _HomeView extends StatelessWidget {
               title: 'Revision',
               icon: Icons.rule_folder_outlined,
               child: atelier.reviewIssues.isEmpty
-                  ? const AtelierSuccessInline(message: 'No hay alertas abiertas.')
+                  ? const AtelierSuccessInline(
+                      message: 'No hay alertas abiertas.')
                   : Column(
                       children: atelier.reviewIssues
                           .take(4)
@@ -2291,8 +2291,12 @@ class _StudioView extends StatefulWidget {
 
 class _StudioViewState extends State<_StudioView> {
   final _titleController = TextEditingController();
-  final _bodyController = TextEditingController();
+  final _bodyController = AtelierRichTextController();
+  final _bodyFocusNode = FocusNode();
+  final _editorScrollController = ScrollController();
   String? _selectedNodeId;
+  TextAlign _textAlign = TextAlign.left;
+  bool _focusMode = false;
 
   CreativeBranch get _branch =>
       branchSpec(branchIdForProject(widget.atelier.activeProject));
@@ -2313,6 +2317,7 @@ class _StudioViewState extends State<_StudioView> {
   @override
   void initState() {
     super.initState();
+    _bodyController.addListener(_handleBodyChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncSelection());
   }
 
@@ -2324,9 +2329,40 @@ class _StudioViewState extends State<_StudioView> {
 
   @override
   void dispose() {
+    _bodyController.removeListener(_handleBodyChanged);
     _titleController.dispose();
     _bodyController.dispose();
+    _bodyFocusNode.dispose();
+    _editorScrollController.dispose();
     super.dispose();
+  }
+
+  void _handleBodyChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (_focusMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
+    }
+  }
+
+  void _centerCaret() {
+    if (!_editorScrollController.hasClients) return;
+    final selection = _bodyController.selection;
+    final caret = selection.isValid ? selection.extentOffset : 0;
+    final beforeCaret = _bodyController.text.substring(
+      0,
+      caret.clamp(0, _bodyController.text.length).toInt(),
+    );
+    final hardLines = RegExp(r'\n').allMatches(beforeCaret).length;
+    final wrappedLines = beforeCaret.length ~/ 72;
+    final target = ((hardLines + wrappedLines) * 30.5) - 230;
+    _editorScrollController.animateTo(
+      target
+          .clamp(0, _editorScrollController.position.maxScrollExtent)
+          .toDouble(),
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+    );
   }
 
   void _syncSelection() {
@@ -2334,7 +2370,10 @@ class _StudioViewState extends State<_StudioView> {
     final node = _selectedNode;
     if (node == null) return;
     if (_selectedNodeId != node.id) {
-      setState(() => _selectedNodeId = node.id);
+      setState(() {
+        _selectedNodeId = node.id;
+        _textAlign = atelierTextAlign(node.metadata['text_alignment']);
+      });
     }
     if (_titleController.text != node.title) _titleController.text = node.title;
     if (_bodyController.text != node.body) _bodyController.text = node.body;
@@ -2343,16 +2382,43 @@ class _StudioViewState extends State<_StudioView> {
   Future<void> _save() async {
     final node = _selectedNode;
     if (node == null) return;
-    await widget.atelier.updateNode(
+    final result = await widget.atelier.updateNode(
       node.copyWith(
         title: _titleController.text,
         body: _bodyController.text,
+        metadata: {
+          ...node.metadata,
+          'text_alignment': atelierAlignmentName(_textAlign),
+        },
       ),
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Texto guardado.')),
+      SnackBar(
+        content: Text(
+          !result.publicationLinked
+              ? 'Texto guardado.'
+              : result.publicationSynced
+                  ? 'Texto guardado y publicacion actualizada.'
+                  : 'Texto guardado. No se pudo actualizar la publicacion.',
+        ),
+      ),
     );
+  }
+
+  void _setAlignment(TextAlign alignment) {
+    setState(() => _textAlign = alignment);
+    _bodyFocusNode.requestFocus();
+  }
+
+  void _toggleFocusMode() {
+    final next = !_focusMode;
+    _bodyController.focusMode = next;
+    setState(() => _focusMode = next);
+    _bodyFocusNode.requestFocus();
+    if (_focusMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
+    }
   }
 
   @override
@@ -2413,6 +2479,9 @@ class _StudioViewState extends State<_StudioView> {
                                   _selectedNodeId = node.id;
                                   _titleController.text = node.title;
                                   _bodyController.text = node.body;
+                                  _textAlign = atelierTextAlign(
+                                    node.metadata['text_alignment'],
+                                  );
                                 });
                               },
                               onEdit: () => widget.onEditNode(node),
@@ -2460,54 +2529,121 @@ class _StudioViewState extends State<_StudioView> {
                           height: 1,
                           color: Colors.white.withValues(alpha: 0.07),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            children: [
-                              CorvusMarkdownFieldPreview(
-                                controller: _titleController,
-                                child: TextField(
-                                  controller: _titleController,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Titulo',
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              CorvusMarkdownFieldPreview(
-                                controller: _bodyController,
-                                child: TextField(
-                                  controller: _bodyController,
-                                  minLines: 16,
-                                  maxLines: 28,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 15,
-                                    height: 1.55,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        'Escribe aqui. Puedes usar [[enlaces internos]] para conectar ideas.',
-                                    hintStyle: TextStyle(
-                                      color:
-                                          Colors.white.withValues(alpha: 0.26),
+                        _AtelierEditorToolbar(
+                          accent: widget.accent,
+                          controller: _bodyController,
+                          alignment: _textAlign,
+                          focusMode: _focusMode,
+                          onAlignmentChanged: _setAlignment,
+                          onFocusModeChanged: _toggleFocusMode,
+                          requestFocus: _bodyFocusNode.requestFocus,
+                        ),
+                        Divider(
+                          height: 1,
+                          color: Colors.white.withValues(alpha: 0.07),
+                        ),
+                        Container(
+                          color: const Color(0xFF100C14),
+                          padding: EdgeInsets.fromLTRB(
+                            wide ? 34 : 18,
+                            32,
+                            wide ? 34 : 18,
+                            38,
+                          ),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 760),
+                              child: Column(
+                                children: [
+                                  TextField(
+                                    controller: _titleController,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 32,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.15,
                                     ),
-                                    border: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    focusedBorder: InputBorder.none,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Titulo',
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                    ),
                                   ),
-                                  onChanged: (_) => setState(() {}),
-                                ),
+                                  Container(
+                                    width: 52,
+                                    height: 3,
+                                    margin: const EdgeInsets.only(
+                                      top: 12,
+                                      bottom: 30,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          widget.accent.withValues(alpha: 0.55),
+                                      borderRadius: BorderRadius.circular(99),
+                                    ),
+                                  ),
+                                  if (_focusMode) ...[
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.center_focus_strong_rounded,
+                                          size: 14,
+                                          color: widget.accent,
+                                        ),
+                                        const SizedBox(width: 7),
+                                        Text(
+                                          'MODO CONCENTRACION',
+                                          style: TextStyle(
+                                            color: widget.accent,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.1,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                  ],
+                                  SizedBox(
+                                    height: wide ? 600 : 520,
+                                    child: TextField(
+                                      key:
+                                          const ValueKey('atelier-rich-editor'),
+                                      controller: _bodyController,
+                                      focusNode: _bodyFocusNode,
+                                      scrollController: _editorScrollController,
+                                      expands: true,
+                                      minLines: null,
+                                      maxLines: null,
+                                      textAlign: _textAlign,
+                                      textAlignVertical: TextAlignVertical.top,
+                                      cursorColor: widget.accent,
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 16,
+                                        height: 1.92,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText:
+                                            'Comienza a escribir. El formato aparecera directamente en la pagina.',
+                                        hintStyle: TextStyle(
+                                          color: Colors.white
+                                              .withValues(alpha: 0.26),
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        border: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                        focusedBorder: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
@@ -2529,6 +2665,210 @@ class _StudioViewState extends State<_StudioView> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _AtelierEditorToolbar extends StatelessWidget {
+  final Color accent;
+  final AtelierRichTextController controller;
+  final TextAlign alignment;
+  final bool focusMode;
+  final ValueChanged<TextAlign> onAlignmentChanged;
+  final VoidCallback onFocusModeChanged;
+  final VoidCallback requestFocus;
+
+  const _AtelierEditorToolbar({
+    required this.accent,
+    required this.controller,
+    required this.alignment,
+    required this.focusMode,
+    required this.onAlignmentChanged,
+    required this.onFocusModeChanged,
+    required this.requestFocus,
+  });
+
+  void _format(VoidCallback action) {
+    action();
+    requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            _EditorToolButton(
+              label: 'H1',
+              tooltip: 'Titulo principal',
+              onTap: () => _format(() => controller.toggleBlock('# ')),
+            ),
+            _EditorToolButton(
+              label: 'H2',
+              tooltip: 'Subtitulo',
+              onTap: () => _format(() => controller.toggleBlock('## ')),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_bold_rounded,
+              tooltip: 'Negrita',
+              onTap: () => _format(() => controller.toggleInline('**')),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_italic_rounded,
+              tooltip: 'Cursiva',
+              onTap: () => _format(() => controller.toggleInline('*')),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_quote_rounded,
+              tooltip: 'Cita',
+              onTap: () => _format(() => controller.toggleBlock('> ')),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_list_bulleted_rounded,
+              tooltip: 'Lista',
+              onTap: () => _format(() => controller.toggleBlock('• ')),
+            ),
+            _EditorToolButton(
+              icon: Icons.link_rounded,
+              tooltip: 'Enlace interno',
+              onTap: () => _format(() => controller.toggleInline('[[', ']]')),
+            ),
+            _EditorToolButton(
+              icon: Icons.horizontal_rule_rounded,
+              tooltip: 'Separador',
+              onTap: () => _format(controller.insertSeparator),
+            ),
+            _EditorToolDivider(color: accent),
+            _EditorToolButton(
+              icon: Icons.format_align_left_rounded,
+              tooltip: 'Alinear a la izquierda',
+              active: alignment == TextAlign.left,
+              accent: accent,
+              onTap: () => onAlignmentChanged(TextAlign.left),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_align_center_rounded,
+              tooltip: 'Centrar',
+              active: alignment == TextAlign.center,
+              accent: accent,
+              onTap: () => onAlignmentChanged(TextAlign.center),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_align_right_rounded,
+              tooltip: 'Alinear a la derecha',
+              active: alignment == TextAlign.right,
+              accent: accent,
+              onTap: () => onAlignmentChanged(TextAlign.right),
+            ),
+            _EditorToolButton(
+              icon: Icons.format_align_justify_rounded,
+              tooltip: 'Justificar',
+              active: alignment == TextAlign.justify,
+              accent: accent,
+              onTap: () => onAlignmentChanged(TextAlign.justify),
+            ),
+            _EditorToolDivider(color: accent),
+            _EditorToolButton(
+              icon: Icons.center_focus_strong_rounded,
+              label: 'Concentracion',
+              tooltip: 'Enfocar el parrafo activo',
+              active: focusMode,
+              accent: accent,
+              onTap: onFocusModeChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditorToolDivider extends StatelessWidget {
+  final Color color;
+
+  const _EditorToolDivider({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      color: color.withValues(alpha: 0.22),
+    );
+  }
+}
+
+class _EditorToolButton extends StatelessWidget {
+  final IconData? icon;
+  final String? label;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool active;
+  final Color? accent;
+
+  const _EditorToolButton({
+    this.icon,
+    this.label,
+    required this.tooltip,
+    required this.onTap,
+    this.active = false,
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        active ? (accent ?? AppColors.primary) : AppColors.textSecondary;
+    return Padding(
+      padding: const EdgeInsets.only(right: 5),
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: active
+              ? color.withValues(alpha: 0.14)
+              : Colors.white.withValues(alpha: 0.035),
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              height: 38,
+              constraints: const BoxConstraints(minWidth: 38),
+              padding: EdgeInsets.symmetric(horizontal: label == null ? 9 : 11),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: active
+                      ? color.withValues(alpha: 0.34)
+                      : Colors.white.withValues(alpha: 0.07),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) Icon(icon, size: 18, color: color),
+                  if (icon != null && label != null) const SizedBox(width: 7),
+                  if (label != null)
+                    Text(
+                      label!,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -2674,7 +3014,8 @@ class _ArchiveView extends StatelessWidget {
               title: 'Backlinks',
               icon: Icons.link_rounded,
               child: selected == null
-                  ? const AtelierEmptyInline(message: 'Selecciona o crea una nota.')
+                  ? const AtelierEmptyInline(
+                      message: 'Selecciona o crea una nota.')
                   : backlinks.isEmpty
                       ? const AtelierEmptyInline(
                           message: 'La primera nota no tiene backlinks.',
@@ -2829,7 +3170,8 @@ class _PublicationView extends StatelessWidget {
               icon: Icons.checklist_rounded,
               child: Column(
                 children: checklist
-                    .map((item) => AtelierChecklistRow(item: item, accent: accent))
+                    .map((item) =>
+                        AtelierChecklistRow(item: item, accent: accent))
                     .toList(),
               ),
             );
@@ -2840,7 +3182,8 @@ class _PublicationView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AtelierInfoLine(label: 'Visibilidad', value: project.visibility),
+                  AtelierInfoLine(
+                      label: 'Visibilidad', value: project.visibility),
                   AtelierInfoLine(
                     label: 'Progreso publico',
                     value: project.publicProgressEnabled ? 'activo' : 'cerrado',
@@ -2944,48 +3287,215 @@ class _ProjectRail extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              AtelierTag(project.type, color: accent),
-              AtelierTag(project.status, color: AppColors.secondaryLight),
-              if (project.genre.isNotEmpty)
-                AtelierTag(project.genre, color: AppColors.gold),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: AtelierMiniMetric(
-                    value: '${atelier.wordCount}', label: 'palabras'),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AtelierMiniMetric(
-                    value: '${atelier.nodes.length}', label: 'nodos'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: AtelierSoftButton(
-                  label: 'Editar',
+          _AtelierRailSection(
+            title: 'Dossier',
+            icon: Icons.description_outlined,
+            accent: accent,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _RailDetail(label: 'Tipo', value: project.type),
+                _RailDetail(
+                  label: 'Genero',
+                  value: project.genre.isEmpty ? 'Sin definir' : project.genre,
+                ),
+                _RailDetail(
+                  label: 'Idioma',
+                  value: project.language.toUpperCase(),
+                ),
+                _RailDetail(
+                  label: 'Visibilidad',
+                  value: project.visibility == 'public' ? 'Publica' : 'Privada',
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AtelierMiniMetric(
+                        value: '${atelier.wordCount}',
+                        label: 'palabras',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AtelierMiniMetric(
+                        value: '${atelier.nodes.length}',
+                        label: 'nodos',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                AtelierSoftButton(
+                  label: 'Editar dossier',
                   icon: Icons.tune_rounded,
                   onTap: onEditProject,
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          _AtelierRailSection(
+            title: 'Flujo',
+            icon: Icons.account_tree_outlined,
+            accent: accent,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: project.status,
+                    isExpanded: true,
+                    dropdownColor: AppColors.surface,
+                    iconEnabledColor: accent,
+                    items: [
+                      ...projectStatusOptions,
+                      if (!projectStatusOptions
+                          .any((option) => option.value == project.status))
+                        ProjectStatusOption(
+                          value: project.status,
+                          label: project.status,
+                          icon: Icons.label_outline_rounded,
+                          color: AppColors.textSecondary,
+                        ),
+                    ]
+                        .map(
+                          (option) => DropdownMenuItem(
+                            value: option.value,
+                            child: Row(
+                              children: [
+                                Icon(option.icon,
+                                    size: 16, color: option.color),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: Text(
+                                    option.label,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null || value == project.status) return;
+                      atelier.updateProject(project.copyWith(status: value));
+                    },
+                  ),
+                ),
+                if ((project.metadata['publication_work_id'] as String?)
+                        ?.trim()
+                        .isNotEmpty ==
+                    true) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.sync_rounded, size: 15, color: accent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'La publicacion se actualiza al guardar',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.50),
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: AtelierTinyIconButton(
+              icon: Icons.delete_outline_rounded,
+              tooltip: 'Eliminar obra',
+              onTap: onDeleteProject,
+              danger: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AtelierRailSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color accent;
+  final Widget child;
+
+  const _AtelierRailSection({
+    required this.title,
+    required this.icon,
+    required this.accent,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+        collapsedIconColor: AppColors.textMuted,
+        iconColor: accent,
+        leading: Icon(icon, size: 18, color: accent),
+        title: Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.0,
+          ),
+        ),
+        children: [child],
+      ),
+    );
+  }
+}
+
+class _RailDetail extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _RailDetail({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(width: 8),
-              AtelierTinyIconButton(
-                icon: Icons.delete_outline_rounded,
-                tooltip: 'Eliminar obra',
-                onTap: onDeleteProject,
-                danger: true,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -4797,10 +5307,7 @@ class _DialogTextField extends StatelessWidget {
       );
     }
 
-    return CorvusMarkdownFieldPreview(
-      controller: controller,
-      child: field,
-    );
+    return field;
   }
 }
 

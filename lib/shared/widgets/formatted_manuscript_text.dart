@@ -50,6 +50,7 @@ class FormattedManuscriptText extends StatelessWidget {
             fontWeight: FontWeight.w900,
             height: 1.18,
           ),
+          textAlign: block.textAlign,
         );
       case _BlockKind.quote:
         return Container(
@@ -73,6 +74,7 @@ class FormattedManuscriptText extends StatelessWidget {
               height: lineHeight,
               fontStyle: FontStyle.italic,
             ),
+            textAlign: block.textAlign,
           ),
         );
       case _BlockKind.listItem:
@@ -105,7 +107,7 @@ class FormattedManuscriptText extends StatelessWidget {
                     ),
             ),
             const SizedBox(width: 12),
-            Expanded(child: _paragraph(block.text)),
+            Expanded(child: _paragraph(block.text, block.textAlign)),
           ],
         );
       case _BlockKind.code:
@@ -140,11 +142,11 @@ class FormattedManuscriptText extends StatelessWidget {
           ),
         );
       case _BlockKind.paragraph:
-        return _paragraph(block.text);
+        return _paragraph(block.text, block.textAlign);
     }
   }
 
-  Widget _paragraph(String value) {
+  Widget _paragraph(String value, TextAlign textAlign) {
     return _richText(
       value,
       TextStyle(
@@ -152,13 +154,22 @@ class FormattedManuscriptText extends StatelessWidget {
         fontSize: fontSize,
         height: lineHeight,
       ),
+      textAlign: textAlign,
     );
   }
 
-  Widget _richText(String value, TextStyle style) {
+  Widget _richText(
+    String value,
+    TextStyle style, {
+    TextAlign textAlign = TextAlign.left,
+  }) {
     final span = TextSpan(style: style, children: _inlineSpans(value, style));
-    if (selectable) return SelectableText.rich(span);
-    return RichText(text: span);
+    return SizedBox(
+      width: double.infinity,
+      child: selectable
+          ? SelectableText.rich(span, textAlign: textAlign)
+          : RichText(text: span, textAlign: textAlign),
+    );
   }
 
   List<InlineSpan> _inlineSpans(String value, TextStyle baseStyle) {
@@ -234,11 +245,16 @@ class FormattedManuscriptText extends StatelessWidget {
     final paragraph = StringBuffer();
     final code = StringBuffer();
     var inCodeBlock = false;
+    var textAlign = TextAlign.left;
 
     void flushParagraph() {
       final value = paragraph.toString().trim();
       if (value.isNotEmpty) {
-        blocks.add(_ManuscriptBlock(_BlockKind.paragraph, value));
+        blocks.add(_ManuscriptBlock(
+          _BlockKind.paragraph,
+          value,
+          textAlign: textAlign,
+        ));
       }
       paragraph.clear();
     }
@@ -271,9 +287,26 @@ class FormattedManuscriptText extends StatelessWidget {
         flushParagraph();
         continue;
       }
-      if (trimmed == '***' || trimmed == '---') {
+      final alignment = RegExp(
+        r'^<!--\s*corvus-align:(left|right|center|justify)\s*-->$',
+      ).firstMatch(trimmed);
+      if (alignment != null) {
         flushParagraph();
-        blocks.add(const _ManuscriptBlock(_BlockKind.divider, ''));
+        textAlign = switch (alignment.group(1)) {
+          'right' => TextAlign.right,
+          'center' => TextAlign.center,
+          'justify' => TextAlign.justify,
+          _ => TextAlign.left,
+        };
+        continue;
+      }
+      if (trimmed == '***' || trimmed == '---' || trimmed == '⁂') {
+        flushParagraph();
+        blocks.add(_ManuscriptBlock(
+          _BlockKind.divider,
+          '',
+          textAlign: textAlign,
+        ));
         continue;
       }
       if (trimmed.startsWith('# ')) {
@@ -282,6 +315,7 @@ class FormattedManuscriptText extends StatelessWidget {
           _BlockKind.heading,
           trimmed.substring(2).trim(),
           level: 1,
+          textAlign: textAlign,
         ));
         continue;
       }
@@ -291,6 +325,7 @@ class FormattedManuscriptText extends StatelessWidget {
           _BlockKind.heading,
           trimmed.substring(3).trim(),
           level: 2,
+          textAlign: textAlign,
         ));
         continue;
       }
@@ -300,6 +335,7 @@ class FormattedManuscriptText extends StatelessWidget {
           _BlockKind.heading,
           trimmed.substring(4).trim(),
           level: 3,
+          textAlign: textAlign,
         ));
         continue;
       }
@@ -308,6 +344,7 @@ class FormattedManuscriptText extends StatelessWidget {
         blocks.add(_ManuscriptBlock(
           _BlockKind.quote,
           trimmed.substring(2).trim(),
+          textAlign: textAlign,
         ));
         continue;
       }
@@ -319,15 +356,19 @@ class FormattedManuscriptText extends StatelessWidget {
           _BlockKind.listItem,
           taskMatch.group(2)!.trim(),
           checked: taskMatch.group(1)!.toLowerCase() == 'x',
+          textAlign: textAlign,
         ));
         continue;
       }
-      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (trimmed.startsWith('- ') ||
+          trimmed.startsWith('* ') ||
+          trimmed.startsWith('• ')) {
         flushParagraph();
         blocks.add(_ManuscriptBlock(
           _BlockKind.listItem,
           trimmed.substring(2).trim(),
           marker: '•',
+          textAlign: textAlign,
         ));
         continue;
       }
@@ -338,6 +379,7 @@ class FormattedManuscriptText extends StatelessWidget {
           _BlockKind.listItem,
           orderedMatch.group(2)!.trim(),
           marker: '${orderedMatch.group(1)}.',
+          textAlign: textAlign,
         ));
         continue;
       }
@@ -364,6 +406,7 @@ class _ManuscriptBlock {
   final int level;
   final String? marker;
   final bool? checked;
+  final TextAlign textAlign;
 
   const _ManuscriptBlock(
     this.kind,
@@ -371,6 +414,7 @@ class _ManuscriptBlock {
     this.level = 1,
     this.marker,
     this.checked,
+    this.textAlign = TextAlign.left,
   });
 
   double spacingAfter(double fontSize) {

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/supabase_config.dart';
 import '../models/aeternum_ficha.dart';
 import '../models/atelier_models.dart';
+import '../features/atelier/atelier_publication_text.dart';
 import 'work_service.dart';
 
 class AtelierSchemaException implements Exception {
@@ -299,9 +300,7 @@ class AtelierService {
   }
 
   String _composeTextBody(List<AtelierNode> publicationNodes) {
-    return publicationNodes
-        .map((node) => '# ${node.title}\n\n${node.body.trim()}')
-        .join('\n\n');
+    return composeAtelierPublicationText(publicationNodes);
   }
 
   // Sincroniza el contenido del taller con la obra ya vinculada, sin tocar su
