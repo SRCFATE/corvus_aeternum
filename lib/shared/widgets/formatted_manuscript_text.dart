@@ -174,71 +174,133 @@ class FormattedManuscriptText extends StatelessWidget {
 
   List<InlineSpan> _inlineSpans(String value, TextStyle baseStyle) {
     final spans = <InlineSpan>[];
-    final pattern = RegExp(
-      r'(\*\*[^*\n]+\*\*|~~[^~\n]+~~|`[^`\n]+`|\[\[[^\]\n]+\]\]|\[[^\]\n]+\]\([^)\n]+\)|\*[^*\n]+\*)',
-    );
     var cursor = 0;
-
-    for (final match in pattern.allMatches(value)) {
-      if (match.start > cursor) {
-        spans.add(TextSpan(text: value.substring(cursor, match.start)));
+    while (cursor < value.length) {
+      if (value.startsWith('[[', cursor)) {
+        final end = value.indexOf(']]', cursor + 2);
+        if (end != -1) {
+          spans.add(TextSpan(
+            text: value.substring(cursor + 2, end),
+            style: baseStyle.copyWith(
+              color: AppColors.primaryLight.withValues(alpha: 0.92),
+              fontWeight: FontWeight.w800,
+            ),
+          ));
+          cursor = end + 2;
+          continue;
+        }
       }
 
-      final token = match.group(0)!;
-      if (token.startsWith('**')) {
-        spans.add(TextSpan(
-          text: token.substring(2, token.length - 2),
-          style: baseStyle.copyWith(fontWeight: FontWeight.w900),
-        ));
-      } else if (token.startsWith('*')) {
-        spans.add(TextSpan(
-          text: token.substring(1, token.length - 1),
-          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
-        ));
-      } else if (token.startsWith('~~')) {
-        spans.add(TextSpan(
-          text: token.substring(2, token.length - 2),
-          style: baseStyle.copyWith(
-            decoration: TextDecoration.lineThrough,
-            color: baseStyle.color?.withValues(alpha: 0.64),
-          ),
-        ));
-      } else if (token.startsWith('`')) {
-        spans.add(TextSpan(
-          text: token.substring(1, token.length - 1),
-          style: baseStyle.copyWith(
-            color: AppColors.gold,
-            backgroundColor: Colors.black.withValues(alpha: 0.28),
-            fontFamily: 'monospace',
-          ),
-        ));
-      } else if (token.startsWith('[[')) {
-        spans.add(TextSpan(
-          text: token.substring(2, token.length - 2),
-          style: baseStyle.copyWith(
-            color: AppColors.primaryLight.withValues(alpha: 0.92),
-            fontWeight: FontWeight.w800,
-          ),
-        ));
-      } else {
-        final separator = token.indexOf('](');
-        spans.add(TextSpan(
-          text: token.substring(1, separator),
-          style: baseStyle.copyWith(
-            color: AppColors.primaryLight,
-            decoration: TextDecoration.underline,
-            decorationColor: AppColors.primaryLight,
-          ),
-        ));
+      if (value.startsWith('[', cursor)) {
+        final link = RegExp(r'^\[([^\]\n]+)\]\(([^)\n]+)\)')
+            .firstMatch(value.substring(cursor));
+        if (link != null) {
+          spans.addAll(_inlineSpans(
+            link.group(1)!,
+            baseStyle.copyWith(
+              color: AppColors.primaryLight,
+              decoration: TextDecoration.underline,
+              decorationColor: AppColors.primaryLight,
+            ),
+          ));
+          cursor += link.end;
+          continue;
+        }
       }
-      cursor = match.end;
-    }
 
-    if (cursor < value.length) {
-      spans.add(TextSpan(text: value.substring(cursor)));
+      if (value.startsWith('`', cursor)) {
+        final end = value.indexOf('`', cursor + 1);
+        if (end != -1) {
+          spans.add(TextSpan(
+            text: value.substring(cursor + 1, end),
+            style: baseStyle.copyWith(
+              color: AppColors.gold,
+              backgroundColor: Colors.black.withValues(alpha: 0.28),
+              fontFamily: 'monospace',
+            ),
+          ));
+          cursor = end + 1;
+          continue;
+        }
+      }
+
+      if (value.startsWith('<u>', cursor)) {
+        final end = value.indexOf('</u>', cursor + 3);
+        if (end != -1) {
+          spans.addAll(_inlineSpans(
+            value.substring(cursor + 3, end),
+            baseStyle.copyWith(decoration: TextDecoration.underline),
+          ));
+          cursor = end + 4;
+          continue;
+        }
+      }
+
+      final marker = value.startsWith('***', cursor)
+          ? '***'
+          : value.startsWith('**', cursor)
+              ? '**'
+              : value.startsWith('~~', cursor)
+                  ? '~~'
+                  : value.startsWith('*', cursor)
+                      ? '*'
+                      : value.startsWith('_', cursor)
+                          ? '_'
+                          : null;
+      if (marker != null) {
+        final end = value.indexOf(marker, cursor + marker.length);
+        if (end != -1) {
+          final nestedStyle = switch (marker) {
+            '***' => baseStyle.copyWith(
+                fontWeight: FontWeight.w900,
+                fontStyle: FontStyle.italic,
+              ),
+            '**' => baseStyle.copyWith(fontWeight: FontWeight.w900),
+            '~~' => baseStyle.copyWith(
+                decoration: TextDecoration.lineThrough,
+                color: baseStyle.color?.withValues(alpha: 0.64),
+              ),
+            _ => baseStyle.copyWith(fontStyle: FontStyle.italic),
+          };
+          spans.addAll(_inlineSpans(
+            value.substring(cursor + marker.length, end),
+            nestedStyle,
+          ));
+          cursor = end + marker.length;
+          continue;
+        }
+      }
+
+      final next = _nextInlineMarker(value, cursor + 1);
+      spans.add(TextSpan(
+        text: _unescapeMarkdown(value.substring(cursor, next)),
+        style: baseStyle,
+      ));
+      cursor = next;
     }
     return spans;
   }
+
+  int _nextInlineMarker(String value, int start) {
+    final positions = <int>[
+      value.indexOf('**', start),
+      value.indexOf('~~', start),
+      value.indexOf('[[', start),
+      value.indexOf('[', start),
+      value.indexOf('`', start),
+      value.indexOf('<u>', start),
+      value.indexOf('*', start),
+      value.indexOf('_', start),
+    ].where((position) => position >= 0).toList();
+    if (positions.isEmpty) return value.length;
+    positions.sort();
+    return positions.first;
+  }
+
+  String _unescapeMarkdown(String value) => value.replaceAllMapped(
+        RegExp(r'\\([\\`*_{}\[\]()#+\-.!><])'),
+        (match) => match.group(1)!,
+      );
 
   List<_ManuscriptBlock> _parseBlocks(String source) {
     final blocks = <_ManuscriptBlock>[];

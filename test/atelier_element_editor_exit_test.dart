@@ -1,8 +1,8 @@
 import 'package:corvus_aeternum/features/atelier/atelier_element_editor.dart';
-import 'package:corvus_aeternum/features/atelier/atelier_rich_text_editor.dart';
 import 'package:corvus_aeternum/models/atelier_models.dart';
 import 'package:corvus_aeternum/providers/atelier_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -62,12 +62,22 @@ void main() {
   testWidgets('back arrow warns explicitly about unsaved changes',
       (tester) async {
     await pumpEditor(tester);
-    final bodyField = find.byWidgetPredicate(
-      (widget) => widget is TextField && widget.expands,
+    final editor = tester.widget<quill.QuillEditor>(
+      find.byKey(const ValueKey('atelier-element-rich-editor')),
     );
 
-    await tester.enterText(bodyField, 'Texto modificado sin guardar');
-    await tester.pump();
+    editor.controller.replaceText(
+      0,
+      editor.controller.document.length - 1,
+      'Texto modificado sin guardar',
+      const TextSelection.collapsed(offset: 29),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      editor.controller.document.toPlainText(),
+      contains('Texto modificado sin guardar'),
+    );
+    expect(find.text('sin guardar'), findsOneWidget);
     await tester.tap(find.byTooltip('Volver'));
     await tester.pumpAndSettle();
 
@@ -88,10 +98,12 @@ void main() {
     expect(find.byKey(const ValueKey('atelier-element-rich-editor')),
         findsOneWidget);
 
-    final bodyField = tester.widget<TextField>(
+    final bodyField = tester.widget<quill.QuillEditor>(
       find.byKey(const ValueKey('atelier-element-rich-editor')),
     );
-    expect(bodyField.controller, isA<AtelierRichTextController>());
+    expect(bodyField.controller, isA<quill.QuillController>());
+    expect(bodyField.config.scrollable, isFalse);
+    expect(find.byType(Scrollbar), findsOneWidget);
   });
 
   testWidgets('offers alignment and concentration controls', (tester) async {

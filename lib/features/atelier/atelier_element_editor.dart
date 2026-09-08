@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -6,7 +9,7 @@ import '../../core/router/navigation_coordinator.dart';
 import '../../models/atelier_models.dart';
 import '../../providers/atelier_provider.dart';
 import '../../shared/widgets/corvus_tag_input.dart';
-import 'atelier_rich_text_editor.dart';
+import 'atelier_quill_document.dart';
 
 const _statusLabels = <String, String>{
   'idea': 'Idea',
@@ -51,10 +54,15 @@ class AtelierElementEditor extends StatefulWidget {
 class _AtelierElementEditorState extends State<AtelierElementEditor> {
   late final TextEditingController _titleController =
       TextEditingController(text: widget.node?.title ?? '');
-  late final AtelierRichTextController _bodyController =
-      AtelierRichTextController(text: widget.node?.body ?? '');
+  late final quill.QuillController _bodyController =
+      createAtelierQuillController(
+    body: widget.node?.body ?? '',
+    metadata: widget.node?.metadata ?? const {},
+  );
   final FocusNode _bodyFocusNode = FocusNode();
-  final ScrollController _bodyScrollController = ScrollController();
+  final ScrollController _pageScrollController = ScrollController();
+  final ScrollController _editorScrollController = ScrollController();
+  late final StreamSubscription<quill.DocChange> _bodyChangesSubscription;
 
   AtelierNode? _node;
   late String _kind = widget.node?.kind ?? widget.initialKind;
@@ -63,23 +71,23 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   late List<String> _tags = List.of(widget.node?.tags ?? const []);
   late String _internalDate = (widget.node?.metadata['date'] as String?) ?? '';
   late String _purpose = (widget.node?.metadata['purpose'] as String?) ?? '';
-  late TextAlign _textAlign =
-      atelierTextAlign(widget.node?.metadata['text_alignment']);
-
   bool _isDirty = false;
   bool _isSaving = false;
   bool _focusMode = false;
+  bool _lastPublicationLinked = false;
+  bool _lastPublicationSynced = false;
   DateTime? _lastSaved;
 
   String get _kindLabel => widget.kindLabels[_kind] ?? _kind;
 
   int get _wordCount {
-    final text = _bodyController.text.trim();
+    final text = _bodyController.document.toPlainText().trim();
     if (text.isEmpty) return 0;
     return RegExp(r'\S+').allMatches(text).length;
   }
 
-  int get _characterCount => _bodyController.text.length;
+  int get _characterCount =>
+      _bodyController.document.toPlainText().trimRight().length;
 
   int get _readingMinutes {
     if (_wordCount == 0) return 0;
@@ -113,7 +121,11 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     super.initState();
     _node = widget.node;
     _titleController.addListener(_markDirty);
-    _bodyController.addListener(_handleBodyChanged);
+    _bodyController.addListener(_handleSelectionChanged);
+    _bodyChangesSubscription = _bodyController.changes.listen((_) {
+      _markDirty();
+      _scheduleCaretCentering();
+    });
     AppNavigationCoordinator.instance.registerExitGuard(
       this,
       _confirmNavigationExit,
@@ -126,27 +138,27 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     if (mounted) setState(() {});
   }
 
-  void _handleBodyChanged() {
-    _markDirty();
+  void _handleSelectionChanged() {
+    if (mounted) setState(() {});
+    _scheduleCaretCentering();
+  }
+
+  void _scheduleCaretCentering() {
     if (_focusMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
     }
   }
 
   void _centerCaret() {
-    if (!_bodyScrollController.hasClients) return;
+    if (!_pageScrollController.hasClients) return;
     final selection = _bodyController.selection;
     final caret = selection.isValid ? selection.extentOffset : 0;
-    final beforeCaret = _bodyController.text.substring(
-      0,
-      caret.clamp(0, _bodyController.text.length).toInt(),
-    );
-    final hardLines = RegExp(r'\n').allMatches(beforeCaret).length;
-    final wrappedLines = beforeCaret.length ~/ 72;
-    final target = ((hardLines + wrappedLines) * 31.0) - 250;
-    _bodyScrollController.animateTo(
+    final target = 390 +
+        (caret / 68 * 33) -
+        (_pageScrollController.position.viewportDimension / 2);
+    _pageScrollController.animateTo(
       target
-          .clamp(0, _bodyScrollController.position.maxScrollExtent)
+          .clamp(0, _pageScrollController.position.maxScrollExtent)
           .toDouble(),
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOut,
@@ -156,10 +168,12 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   @override
   void dispose() {
     AppNavigationCoordinator.instance.unregisterExitGuard(this);
+    _bodyChangesSubscription.cancel();
     _titleController.dispose();
     _bodyController.dispose();
     _bodyFocusNode.dispose();
-    _bodyScrollController.dispose();
+    _pageScrollController.dispose();
+    _editorScrollController.dispose();
     super.dispose();
   }
 
@@ -175,7 +189,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           'purpose': _purpose.trim()
         else if (_node?.metadata.containsKey('purpose') ?? false)
           'purpose': null,
-        'text_alignment': atelierAlignmentName(_textAlign),
+        'text_alignment': atelierPrimaryAlignment(_bodyController),
+        atelierRichTextDeltaKey: atelierQuillDeltaJson(_bodyController),
       }..removeWhere((_, value) => value == null);
 
   Future<bool> _save({String? statusOverride, bool silent = false}) async {
@@ -197,7 +212,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           projectId: widget.projectId,
           kind: _kind,
           title: title,
-          body: _bodyController.text,
+          body: atelierQuillToMarkdown(_bodyController),
           status: status,
           canonStatus: _canonStatus,
           tags: _tags,
@@ -221,7 +236,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           _node!.copyWith(
             kind: _kind,
             title: title,
-            body: _bodyController.text,
+            body: atelierQuillToMarkdown(_bodyController),
             status: status,
             canonStatus: _canonStatus,
             tags: _tags,
@@ -238,6 +253,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         _status = status;
         _isDirty = false;
         _isSaving = false;
+        _lastPublicationLinked = publicationLinked;
+        _lastPublicationSynced = publicationSynced;
         _lastSaved = DateTime.now();
       });
       if (!silent) {
@@ -262,7 +279,11 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     final ok = await _save(statusOverride: 'done', silent: true);
     if (ok && mounted) {
       _showMessage(
-        '$_kindLabel sellado como terminado. Se incluirá al preparar la publicación.',
+        _lastPublicationLinked
+            ? _lastPublicationSynced
+                ? '$_kindLabel terminado y publicación actualizada'
+                : '$_kindLabel terminado. No se pudo actualizar la publicación'
+            : '$_kindLabel terminado y listo para publicar',
       );
     }
   }
@@ -436,45 +457,108 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   }
 
   void _insertWikilink() {
-    _format(() => _bodyController.toggleInline('[[', ']]'));
+    _format(() {
+      final selection = _bodyController.selection;
+      final plainText = _bodyController.document.toPlainText();
+      final start = selection.start.clamp(0, plainText.length).toInt();
+      final end = selection.end.clamp(start, plainText.length).toInt();
+      if (selection.isCollapsed) {
+        const label = 'Vínculo';
+        _bodyController.replaceText(
+          start,
+          0,
+          label,
+          TextSelection(baseOffset: start, extentOffset: start + label.length),
+        );
+        _bodyController.formatText(
+          start,
+          label.length,
+          const quill.LinkAttribute('wikilink:Vínculo'),
+        );
+        return;
+      }
+      final label = plainText.substring(start, end);
+      _bodyController.formatSelection(
+        quill.LinkAttribute('wikilink:$label'),
+      );
+    });
   }
 
   void _insertSceneBreak() {
-    _format(_bodyController.insertSeparator);
+    _format(() {
+      final selection = _bodyController.selection;
+      final start = selection.start;
+      const separator = '⁂\n';
+      _bodyController.replaceText(
+        start,
+        selection.end - start,
+        separator,
+        TextSelection.collapsed(offset: start + separator.length),
+      );
+      _bodyController.formatText(
+        start,
+        separator.length,
+        quill.Attribute.centerAlignment,
+      );
+    });
   }
 
   void _insertHeading(int level) {
-    _format(() => _bodyController.toggleBlock(level == 1 ? '# ' : '## '));
+    _toggleAttribute(level == 1 ? quill.Attribute.h1 : quill.Attribute.h2);
   }
 
   void _insertBold() {
-    _format(() => _bodyController.toggleInline('**'));
+    _toggleAttribute(quill.Attribute.bold);
   }
 
   void _insertItalic() {
-    _format(() => _bodyController.toggleInline('*'));
+    _toggleAttribute(quill.Attribute.italic);
+  }
+
+  void _insertUnderline() {
+    _toggleAttribute(quill.Attribute.underline);
+  }
+
+  void _insertStrikeThrough() {
+    _toggleAttribute(quill.Attribute.strikeThrough);
   }
 
   void _insertQuote() {
-    _format(() => _bodyController.toggleBlock('> '));
+    _toggleAttribute(quill.Attribute.blockQuote);
   }
 
   void _insertListItem() {
-    _format(() => _bodyController.toggleBlock('• '));
+    _toggleAttribute(quill.Attribute.ul);
   }
 
   void _setAlignment(TextAlign alignment) {
-    if (_textAlign == alignment) return;
-    setState(() {
-      _textAlign = alignment;
-      _isDirty = true;
+    _format(() => _bodyController.formatSelection(
+          atelierAlignmentAttribute(alignment),
+        ));
+  }
+
+  void _toggleAttribute(quill.Attribute<dynamic> attribute) {
+    _format(() {
+      final selected =
+          _bodyController.getSelectionStyle().attributes[attribute.key];
+      final isActive = selected?.value == attribute.value;
+      _bodyController.formatSelection(
+        isActive ? quill.Attribute.clone(attribute, null) : attribute,
+      );
     });
-    _bodyFocusNode.requestFocus();
+  }
+
+  bool _attributeIsActive(quill.Attribute<dynamic> attribute) {
+    final selected =
+        _bodyController.getSelectionStyle().attributes[attribute.key];
+    if (attribute == quill.Attribute.leftAlignment && selected == null) {
+      return true;
+    }
+    return selected?.value == attribute.value;
   }
 
   void _toggleFocusMode() {
     final next = !_focusMode;
-    _bodyController.focusMode = next;
     setState(() => _focusMode = next);
     _bodyFocusNode.requestFocus();
     if (next) {
@@ -793,51 +877,52 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   // ─── Editor ──────────────────────────────────────────────────────────────────
 
   Widget _buildEditor() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1120;
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppColors.primaryMuted.withValues(alpha: 0.16),
-                AppColors.background,
-              ],
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.primaryMuted.withValues(alpha: 0.16),
+            AppColors.background,
+          ],
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 1120;
+          return Scrollbar(
+            controller: _pageScrollController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _pageScrollController,
+              primary: false,
+              padding: EdgeInsets.fromLTRB(
+                wide ? 34 : 18,
+                wide ? 26 : 18,
+                wide ? 34 : 18,
+                72,
+              ),
+              child: wide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(width: 280, child: _buildInspectorPanel()),
+                        const SizedBox(width: 28),
+                        Expanded(child: _buildWritingCanvas(compact: false)),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        _buildCompactInspectorMenu(),
+                        const SizedBox(height: 16),
+                        _buildWritingCanvas(compact: true),
+                      ],
+                    ),
             ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              wide ? 34 : 18,
-              wide ? 26 : 18,
-              wide ? 34 : 18,
-              0,
-            ),
-            child: wide
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 280,
-                        child: SingleChildScrollView(
-                          child: _buildInspectorPanel(),
-                        ),
-                      ),
-                      const SizedBox(width: 22),
-                      Expanded(child: _buildWritingCanvas(compact: false)),
-                    ],
-                  )
-                : Column(
-                    children: [
-                      _buildCompactInspectorMenu(),
-                      const SizedBox(height: 12),
-                      Expanded(child: _buildWritingCanvas(compact: true)),
-                    ],
-                  ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -846,10 +931,11 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 860),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _buildInlineTools(compact),
             const SizedBox(height: 12),
-            Expanded(child: _buildBodySurface(compact: compact)),
+            _buildBodySurface(compact: compact),
           ],
         ),
       ),
@@ -861,6 +947,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       padding:
           EdgeInsets.fromLTRB(compact ? 24 : 52, 28, compact ? 24 : 52, 18),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Wrap(
             alignment: WrapAlignment.center,
@@ -941,43 +1028,57 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             icon: Icons.title_rounded,
             label: 'H1',
             compact: compact,
+            active: _attributeIsActive(quill.Attribute.h1),
             onTap: () => _insertHeading(1),
           ),
           _ToolButton(
             icon: Icons.short_text_rounded,
             label: 'H2',
             compact: compact,
+            active: _attributeIsActive(quill.Attribute.h2),
             onTap: () => _insertHeading(2),
           ),
           _ToolButton(
             icon: Icons.format_bold_rounded,
             label: 'Negrita',
             compact: compact,
+            active: _attributeIsActive(quill.Attribute.bold),
             onTap: _insertBold,
           ),
           _ToolButton(
             icon: Icons.format_italic_rounded,
             label: 'Cursiva',
             compact: compact,
+            active: _attributeIsActive(quill.Attribute.italic),
             onTap: _insertItalic,
+          ),
+          _ToolButton(
+            icon: Icons.format_underlined_rounded,
+            label: 'Subrayado',
+            compact: compact,
+            active: _attributeIsActive(quill.Attribute.underline),
+            onTap: _insertUnderline,
+          ),
+          _ToolButton(
+            icon: Icons.format_strikethrough_rounded,
+            label: 'Tachado',
+            compact: compact,
+            active: _attributeIsActive(quill.Attribute.strikeThrough),
+            onTap: _insertStrikeThrough,
           ),
           _ToolButton(
             icon: Icons.format_quote_rounded,
             label: 'Cita',
             compact: compact,
+            active: _attributeIsActive(quill.Attribute.blockQuote),
             onTap: _insertQuote,
           ),
           _ToolButton(
             icon: Icons.format_list_bulleted_rounded,
             label: 'Lista',
             compact: compact,
+            active: _attributeIsActive(quill.Attribute.ul),
             onTap: _insertListItem,
-          ),
-          _ToolButton(
-            icon: Icons.tune_rounded,
-            label: 'Detalles',
-            compact: compact,
-            onTap: _openDetails,
           ),
           _ToolButton(
             icon: Icons.link_rounded,
@@ -996,7 +1097,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             label: 'Izquierda',
             tooltip: 'Alinear a la izquierda',
             compact: compact,
-            active: _textAlign == TextAlign.left,
+            active: _attributeIsActive(quill.Attribute.leftAlignment),
             onTap: () => _setAlignment(TextAlign.left),
           ),
           _ToolButton(
@@ -1004,7 +1105,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             label: 'Centrar',
             tooltip: 'Centrar',
             compact: compact,
-            active: _textAlign == TextAlign.center,
+            active: _attributeIsActive(quill.Attribute.centerAlignment),
             onTap: () => _setAlignment(TextAlign.center),
           ),
           _ToolButton(
@@ -1012,7 +1113,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             label: 'Derecha',
             tooltip: 'Alinear a la derecha',
             compact: compact,
-            active: _textAlign == TextAlign.right,
+            active: _attributeIsActive(quill.Attribute.rightAlignment),
             onTap: () => _setAlignment(TextAlign.right),
           ),
           _ToolButton(
@@ -1020,7 +1121,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             label: 'Justificar',
             tooltip: 'Justificar',
             compact: compact,
-            active: _textAlign == TextAlign.justify,
+            active: _attributeIsActive(quill.Attribute.justifyAlignment),
             onTap: () => _setAlignment(TextAlign.justify),
           ),
           _ToolButton(
@@ -1084,43 +1185,91 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 ],
               ),
             ),
-          Expanded(child: _buildLiveEditorPane(compact: compact)),
+          _buildLiveEditorPane(compact: compact),
         ],
       ),
     );
   }
 
   Widget _buildLiveEditorPane({required bool compact}) {
-    return TextField(
+    return quill.QuillEditor(
       key: const ValueKey('atelier-element-rich-editor'),
       controller: _bodyController,
       focusNode: _bodyFocusNode,
-      scrollController: _bodyScrollController,
-      maxLines: null,
-      expands: true,
-      textAlign: _textAlign,
-      textAlignVertical: TextAlignVertical.top,
-      style: TextStyle(
-        color: AppColors.textPrimary,
-        fontSize: compact ? 16 : 17,
-        height: 1.95,
-      ),
-      decoration: InputDecoration(
-        hintText:
-            'Comienza a escribir. El formato aparecerá directamente en la página.',
-        hintStyle: TextStyle(
-          color: Colors.white.withValues(alpha: 0.24),
-          fontSize: compact ? 15 : 16,
-          height: 1.9,
+      scrollController: _editorScrollController,
+      config: quill.QuillEditorConfig(
+        scrollable: false,
+        expands: false,
+        minHeight: compact ? 520 : 650,
+        padding: EdgeInsets.fromLTRB(
+          compact ? 24 : 64,
+          28,
+          compact ? 24 : 64,
+          88,
         ),
-        border: InputBorder.none,
-        enabledBorder: InputBorder.none,
-        focusedBorder: InputBorder.none,
-        contentPadding: EdgeInsets.fromLTRB(
-          compact ? 24 : 64,
-          22,
-          compact ? 24 : 64,
-          72,
+        placeholder:
+            'Comienza a escribir. El formato aparecerá directamente en la página.',
+        customStyles: _quillStyles(context, compact),
+        onTapOutsideEnabled: false,
+      ),
+    );
+  }
+
+  quill.DefaultStyles _quillStyles(BuildContext context, bool compact) {
+    final defaults = quill.DefaultStyles.getInstance(context);
+    final bodyStyle = TextStyle(
+      color: _focusMode
+          ? AppColors.textPrimary.withValues(alpha: 0.88)
+          : AppColors.textPrimary,
+      fontSize: compact ? 16 : 17,
+      height: 1.95,
+      letterSpacing: 0.05,
+    );
+    return quill.DefaultStyles(
+      paragraph: defaults.paragraph?.copyWith(style: bodyStyle),
+      h1: defaults.h1?.copyWith(
+        style: bodyStyle.copyWith(
+          fontSize: compact ? 27 : 31,
+          height: 1.28,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      h2: defaults.h2?.copyWith(
+        style: bodyStyle.copyWith(
+          fontSize: compact ? 22 : 25,
+          height: 1.35,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      bold: bodyStyle.copyWith(fontWeight: FontWeight.w900),
+      italic: bodyStyle.copyWith(fontStyle: FontStyle.italic),
+      underline: bodyStyle.copyWith(decoration: TextDecoration.underline),
+      strikeThrough: bodyStyle.copyWith(decoration: TextDecoration.lineThrough),
+      link: bodyStyle.copyWith(
+        color: AppColors.primaryLight,
+        decoration: TextDecoration.underline,
+        decorationColor: AppColors.primaryLight,
+      ),
+      quote: defaults.quote?.copyWith(
+        style: bodyStyle.copyWith(
+          color: AppColors.textSecondary,
+          fontStyle: FontStyle.italic,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.035),
+          border: Border(
+            left: BorderSide(
+              color: AppColors.primary.withValues(alpha: 0.62),
+              width: 3,
+            ),
+          ),
+        ),
+      ),
+      lists: defaults.lists?.copyWith(style: bodyStyle),
+      placeHolder: defaults.placeHolder?.copyWith(
+        style: bodyStyle.copyWith(
+          color: Colors.white.withValues(alpha: 0.22),
+          fontStyle: FontStyle.italic,
         ),
       ),
     );

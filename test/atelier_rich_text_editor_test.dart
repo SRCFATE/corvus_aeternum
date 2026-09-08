@@ -68,7 +68,26 @@ void main() {
     expect(text.textAlign, TextAlign.center);
   });
 
-  test('saving a linked node also synchronizes its published work', () async {
+  testWidgets('reader preserves combined inline formatting', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Material(
+          child: FormattedManuscriptText(
+            text: '**_Combinado_** y <u>subrayado</u>',
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<SelectableText>(find.byType(SelectableText));
+    final combined = _spanWithText(text.textSpan!, 'Combinado');
+    final underlined = _spanWithText(text.textSpan!, 'subrayado');
+    expect(combined?.style?.fontWeight, FontWeight.w900);
+    expect(combined?.style?.fontStyle, FontStyle.italic);
+    expect(underlined?.style?.decoration, TextDecoration.underline);
+  });
+
+  test('marking a linked chapter done updates its published work', () async {
     final node = _node();
     final project = _project(
       metadata: const {'publication_work_id': 'work-1'},
@@ -85,13 +104,26 @@ void main() {
     final provider = AtelierProvider(service: service);
     await provider.load('profile-1');
 
-    final result = await provider.updateNode(node.copyWith(body: 'Corregido'));
+    final result = await provider.updateNode(
+      node.copyWith(body: 'Corregido', status: 'done'),
+    );
 
     expect(result.publicationLinked, isTrue);
     expect(result.publicationSynced, isTrue);
     expect(service.syncCalls, 1);
     expect(service.syncedNodes.single.body, 'Corregido');
+    expect(service.syncedNodes.single.status, 'done');
   });
+}
+
+TextSpan? _spanWithText(InlineSpan span, String value) {
+  if (span is! TextSpan) return null;
+  if (span.text == value) return span;
+  for (final child in span.children ?? const <InlineSpan>[]) {
+    final result = _spanWithText(child, value);
+    if (result != null) return result;
+  }
+  return null;
 }
 
 AtelierNode _node({Map<String, dynamic> metadata = const {}}) {

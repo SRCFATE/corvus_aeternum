@@ -21,6 +21,13 @@ dependencies:
   # Navigation
   go_router: ^14.6.3
 
+  # Editor WYSIWYG del Atelier: formato combinable y atributos por párrafo.
+  flutter_quill: ^11.5.1
+  markdown_quill: ^4.3.0
+  markdown: ^7.3.1
+  flutter_localizations:
+    sdk: flutter
+
   # State management
   provider: ^6.1.2
 
@@ -31,7 +38,7 @@ dependencies:
   # Utilities
   path: ^1.9.1
   shared_preferences: ^2.5.4
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # El cobro ocurre en el proveedor de pagos, nunca dentro de Corvus: hace
   # falta poder abrir su checkout y su portal de cliente.

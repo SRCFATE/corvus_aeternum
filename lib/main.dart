@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
@@ -156,6 +157,9 @@ class _ConspirationLoaderState extends State<_ConspirationLoader>
     return MaterialApp.router(
       title: 'Corvus Aeternum',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates:
+          quill.FlutterQuillLocalizations.localizationsDelegates,
+      supportedLocales: quill.FlutterQuillLocalizations.supportedLocales,
       theme: AppTheme.buildDark(
         accent: cp.accent,
         base: cp.base,
