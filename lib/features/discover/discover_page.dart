@@ -1,6 +1,11 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'discovery_order.dart';
+import '../../core/router/session_page_state.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import '../home/continue_writing_card.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/corvus_breakpoints.dart';
 import '../../core/theme/corvus_design.dart';
@@ -8,6 +13,7 @@ import '../../models/work.dart';
 import '../../services/work_service.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_cta.dart';
+import '../../shared/widgets/work_card.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import '../../shared/widgets/corvus_scroll_to_top.dart';
@@ -36,7 +42,7 @@ class DiscoverPage extends StatefulWidget {
   State<DiscoverPage> createState() => _DiscoverPageState();
 }
 
-class _DiscoverPageState extends State<DiscoverPage> {
+class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
   late final WorkService _workService;
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
@@ -45,17 +51,38 @@ class _DiscoverPageState extends State<DiscoverPage> {
   bool _isLoading = true;
   bool _isFocused = false;
   String _searchQuery = '';
+  int _request = 0;
+  Timer? _debounce;
+  String? _error;
+  DateTime? _previousVisit;
+  String get _preferencesKey =>
+      'corvus.discover.${context.read<AuthProvider?>()?.profile?.id ?? 'visitor'}';
+  @override
+  String get sessionKey => 'discover.filters';
+  @override
+  Map<String, dynamic> captureSession() => {
+        'query': _searchQuery,
+        'discipline': _selectedDiscipline,
+        'recent': List<String>.of(_recentSearches)
+      };
+  @override
+  void restoreSession(Map<String, dynamic> value) {
+    _searchQuery = value['query'] as String? ?? '';
+    _selectedDiscipline = value['discipline'] as String? ?? 'Todas';
+    _searchController.text = _searchQuery;
+    _recentSearches
+      ..clear()
+      ..addAll((value['recent'] as List?)?.whereType<String>() ?? []);
+    _search();
+  }
 
-  final List<String> _recentSearches = [
-    'Arte abstracto',
-    'Fotografía urbana',
-    'Ilustración'
-  ];
+  final List<String> _recentSearches = [];
 
   @override
   void initState() {
     super.initState();
     _workService = widget.service ?? WorkService();
+    _loadVisit();
     _search();
     _focusNode
         .addListener(() => setState(() => _isFocused = _focusNode.hasFocus));
@@ -63,33 +90,71 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
   Future<void> _search() async {
-    setState(() => _isLoading = true);
+    final request = ++_request;
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
     try {
       final works = await _workService.getDiscoverWorks(
         discipline: _selectedDiscipline == 'Todas' ? null : _selectedDiscipline,
         query: _searchQuery.isEmpty ? null : _searchQuery,
         limit: 40,
       );
-      if (mounted) {
+      if (mounted && request == _request) {
         setState(() {
-          _works = works;
+          _works = orderDiscoveryWorks(
+              works,
+              _searchQuery.isEmpty && _selectedDiscipline == 'Todas'
+                  ? context.read<AuthProvider?>()?.profile?.disciplines ?? []
+                  : []);
           _isLoading = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && request == _request) {
+        setState(() {
+          _isLoading = false;
+          _error = 'No se pudo actualizar el archivo. Inténtalo de nuevo.';
+        });
+      }
     }
   }
 
   void _onSearch(String query) {
+    _request++;
+    _debounce?.cancel();
     setState(() => _searchQuery = query);
-    if (query.length > 2 || query.isEmpty) _search();
+    _debounce = Timer(const Duration(milliseconds: 300), _search);
+  }
+
+  Future<void> _loadVisit() async {
+    try {
+      final key = _preferencesKey;
+      final preferences = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() => _previousVisit =
+          DateTime.tryParse(preferences.getString('$key.visit') ?? ''));
+      await preferences.setString(
+          '$key.visit', DateTime.now().toUtc().toIso8601String());
+    } catch (_) {/* La exploración funciona sin almacenamiento local. */}
+  }
+
+  void _rememberSearch(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+    setState(() {
+      _recentSearches.remove(trimmed);
+      _recentSearches.insert(0, trimmed);
+      if (_recentSearches.length > 8) _recentSearches.removeLast();
+    });
   }
 
   @override
@@ -111,19 +176,44 @@ class _DiscoverPageState extends State<DiscoverPage> {
       body: CorvusScrollToTop(
         child: CorvusPage(
           child: CustomScrollView(
+            key: const PageStorageKey('discover.scroll'),
             slivers: [
               _buildEditorialHero(layout),
+              if (context.watch<AuthProvider?>()?.profile?.id
+                  case final String profileId)
+                SliverToBoxAdapter(
+                    child: ContinueWritingCard(
+                        key: ValueKey(profileId), profileId: profileId)),
               SliverToBoxAdapter(child: _buildSearchBar()),
               SliverToBoxAdapter(child: _buildDisciplineChips()),
               if (_isFocused &&
                   _recentSearches.isNotEmpty &&
                   _searchQuery.isEmpty)
                 SliverToBoxAdapter(child: _buildRecentSearches()),
-              if (!_isFocused)
-                SliverToBoxAdapter(child: _buildTrendingSection()),
               if (!_isFocused && (_isLoading || _works.isNotEmpty))
                 SliverToBoxAdapter(child: _buildSectionLabel('ARCHIVO VIVO')),
-              if (_isLoading)
+              if (!_isFocused &&
+                  _searchQuery.isEmpty &&
+                  _selectedDiscipline == 'Todas' &&
+                  (context
+                          .watch<AuthProvider?>()
+                          ?.profile
+                          ?.disciplines
+                          .isNotEmpty ??
+                      false))
+                const SliverToBoxAdapter(
+                    child: Padding(
+                        padding: EdgeInsets.only(bottom: 12),
+                        child: Text(
+                            'Priorizamos obras de las disciplinas de tu perfil.'))),
+              if (_error != null)
+                SliverToBoxAdapter(
+                    child: ListTile(
+                        title: Text(_error!),
+                        trailing: TextButton(
+                            onPressed: _search,
+                            child: const Text('Reintentar')))),
+              if (_isLoading && _works.isEmpty)
                 // El aro girando decía "espera" y nada más. El esqueleto dice
                 // además qué forma va a tener lo que llega, así que la página
                 // no da un salto cuando llega.
@@ -165,9 +255,11 @@ class _DiscoverPageState extends State<DiscoverPage> {
                       final work = _works[index];
                       return CorvusScrollReveal(
                         index: index % columns,
-                        child: _DiscoverGridTile(
+                        child: WorkCard(
                           key: ValueKey('discover-work-${work.id}'),
                           work: work,
+                          isNew: _previousVisit != null &&
+                              work.createdAt.isAfter(_previousVisit!),
                         ),
                       );
                     },
@@ -307,13 +399,17 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 style:
                     const TextStyle(fontSize: 15, color: AppColors.textPrimary),
                 decoration: const InputDecoration(
-                  hintText: 'Buscar obras, artistas o colecciones...',
+                  hintText: 'Buscar obras por título o descripción…',
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(vertical: 14),
                 ),
                 onChanged: _onSearch,
+                onSubmitted: (value) {
+                  _rememberSearch(value);
+                  _focusNode.unfocus();
+                },
               ),
             ),
             if (_searchQuery.isNotEmpty)
@@ -393,152 +489,6 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  Widget _buildTrendingSection() {
-    if (_searchQuery.isNotEmpty) return const SizedBox.shrink();
-    final compact = CorvusLayout.of(context).isCompact;
-    final trendCount = compact ? 3 : 5;
-    final trending = _works.take(trendCount).toList();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 24, 0, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Text(
-              'TENDENCIAS',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.35),
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.4,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Container(
-                    height: 0.5, color: Colors.white.withValues(alpha: 0.07))),
-          ]),
-          const SizedBox(height: 16),
-          if (_isLoading)
-            ...List.generate(trendCount, (_) => const _TrendingSkeleton())
-          else if (trending.isEmpty) ...[
-            ...List.generate(3, (_) => const _TrendingSkeleton(ghost: true)),
-            const SizedBox(height: 14),
-            Text(
-              'Todavía no hay tendencias registradas.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.28), fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Las primeras obras publicadas aparecerán aquí.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.18), fontSize: 12),
-            ),
-          ] else
-            ...trending
-                .asMap()
-                .entries
-                .map((e) => _buildTrendingItem(e.value, e.key)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTrendingItem(Work work, int index) {
-    return GestureDetector(
-      onTap: () => context.push('/work/${work.id}'),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border, width: 0.5),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 32,
-              child: Text(
-                '0${index + 1}',
-                style: TextStyle(
-                  color: index == 0 ? AppColors.primary : AppColors.textMuted,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            if (work.hasImage)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: CachedNetworkImage(
-                    imageUrl: work.displayImage,
-                    fit: BoxFit.cover,
-                    placeholder: (_, __) => Container(color: AppColors.overlay),
-                    errorWidget: (_, __, ___) =>
-                        Container(color: AppColors.overlay),
-                  ),
-                ),
-              )
-            else
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                    color: AppColors.overlay,
-                    borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.image_outlined,
-                    color: AppColors.textMuted, size: 20),
-              ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    work.title,
-                    style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    work.discipline.isNotEmpty ? work.discipline : 'Arte',
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Icon(Icons.visibility_outlined,
-                    size: 12, color: AppColors.textMuted),
-                const SizedBox(height: 2),
-                Text(_fmt(work.viewsCount),
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 11)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildSectionLabel(String label) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 28, 0, 14),
@@ -560,11 +510,6 @@ class _DiscoverPageState extends State<DiscoverPage> {
         ],
       ),
     );
-  }
-
-  String _fmt(int n) {
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
-    return '$n';
   }
 }
 
@@ -685,247 +630,3 @@ class _DisciplineChipState extends State<_DisciplineChip> {
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-class _TrendingSkeleton extends StatelessWidget {
-  final bool ghost;
-  const _TrendingSkeleton({this.ghost = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final alpha = ghost ? 0.03 : 0.06;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: ghost ? 0.02 : 0.04),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: Colors.white.withValues(alpha: ghost ? 0.04 : 0.07)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: alpha),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: alpha),
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 11,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: alpha),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Container(
-                  height: 9,
-                  width: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: alpha * 0.6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Grid tile ────────────────────────────────────────────────────────────────
-
-class _DiscoverGridTile extends StatefulWidget {
-  final Work work;
-  const _DiscoverGridTile({super.key, required this.work});
-
-  @override
-  State<_DiscoverGridTile> createState() => _DiscoverGridTileState();
-}
-
-class _DiscoverGridTileState extends State<_DiscoverGridTile> {
-  bool _hovered = false;
-
-  Work get work => widget.work;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: CorvusPressable(
-        onTap: () => context.push('/work/${work.id}'),
-        hoverScale: 1.022,
-        hoverLift: 4,
-        pressedScale: 0.985,
-        child: AnimatedContainer(
-          duration: CorvusMotion.fast,
-          curve: CorvusMotion.standard,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(CorvusRadius.md),
-            color: AppColors.card,
-            border: Border.all(
-              color: _hovered
-                  ? accent.withValues(alpha: 0.42)
-                  : Colors.white.withValues(alpha: 0.07),
-            ),
-            boxShadow: _hovered
-                ? CorvusElevation.glow(accent, strength: 0.9)
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.24),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: work.hasImage
-                    ? _TileImage(url: work.displayImage, zoomed: _hovered)
-                    : Container(
-                        color: AppColors.overlay,
-                        child: const Center(
-                            child: Icon(Icons.image_outlined,
-                                color: AppColors.textMuted, size: 32)),
-                      ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.85)
-                      ],
-                      stops: const [0.45, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        work.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          shadows: [Shadow(color: Colors.black, blurRadius: 6)],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              work.authorDisplayName ??
-                                  work.authorUsername ??
-                                  '',
-                              style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 10),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (work.discipline.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                work.discipline,
-                                style: const TextStyle(
-                                    color: AppColors.background,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// La portada de una tarjeta.
-///
-/// Dos cosas que no se ven pero se notan. `memCacheWidth` decodifica la imagen
-/// al tamaño en que se va a pintar: una foto de 4000 px de ancho metida en una
-/// tarjeta de 260 ocupa sesenta veces más memoria de la que necesita, y en un
-/// teléfono con veinte tarjetas en pantalla eso es la diferencia entre
-/// desplazarse y arrastrarse. Y el fundido de entrada evita el parpadeo del
-/// hueco gris cuando la imagen ya venía en caché.
-class _TileImage extends StatelessWidget {
-  final String url;
-  final bool zoomed;
-
-  const _TileImage({required this.url, required this.zoomed});
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = MediaQuery.devicePixelRatioOf(context);
-
-    return AnimatedScale(
-      // Un acercamiento mínimo con el cursor encima: la tarjeta responde sin
-      // que la composición se mueva.
-      scale: zoomed ? 1.05 : 1,
-      duration: CorvusMotion.medium,
-      curve: CorvusMotion.standard,
-      child: CachedNetworkImage(
-        imageUrl: url,
-        fit: BoxFit.cover,
-        memCacheWidth: (420 * ratio).round(),
-        fadeInDuration: CorvusMotion.medium,
-        placeholder: (_, __) => Container(color: AppColors.overlay),
-        errorWidget: (_, __, ___) => Container(color: AppColors.overlay),
-      ),
-    );
-  }
-}

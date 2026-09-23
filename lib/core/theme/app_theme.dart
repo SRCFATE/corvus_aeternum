@@ -128,10 +128,11 @@ abstract final class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          minimumSize: const Size(44, CorvusControl.minHeight),
           backgroundColor: accent,
           foregroundColor: base,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(CorvusRadius.md)),
           textStyle: const TextStyle(
@@ -143,10 +144,11 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          minimumSize: const Size(44, CorvusControl.minHeight),
           backgroundColor: accent,
           foregroundColor: base,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(CorvusRadius.md),
           ),
@@ -159,9 +161,10 @@ abstract final class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          minimumSize: const Size(44, CorvusControl.minHeight),
           foregroundColor: accent,
           side: BorderSide(color: accent),
-          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(CorvusRadius.md)),
           textStyle: const TextStyle(
@@ -173,6 +176,7 @@ abstract final class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          minimumSize: const Size(44, CorvusControl.minHeight),
           foregroundColor: accent,
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),

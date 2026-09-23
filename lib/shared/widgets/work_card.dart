@@ -1,6 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
+import 'add_to_collection_sheet.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/work.dart';
 import '../../core/theme/corvus_design.dart';
@@ -12,12 +15,14 @@ class WorkCard extends StatefulWidget {
   final Work work;
   final VoidCallback? onLike;
   final bool isLiked;
+  final bool isNew;
 
   const WorkCard({
     super.key,
     required this.work,
     this.onLike,
     this.isLiked = false,
+    this.isNew = false,
   });
 
   @override
@@ -26,6 +31,7 @@ class WorkCard extends StatefulWidget {
 
 class _WorkCardState extends State<WorkCard> {
   bool _hovered = false;
+  bool _openingCollection = false;
 
   Work get work => widget.work;
   VoidCallback? get onLike => widget.onLike;
@@ -102,7 +108,7 @@ class _WorkCardState extends State<WorkCard> {
                   child: _priceChip(),
                 ),
               // Botón like (top-right si no hay precio)
-              if (!(work.isForSale && work.price != null))
+              if (onLike != null && !(work.isForSale && work.price != null))
                 Positioned(
                   top: 8,
                   right: 8,
@@ -254,6 +260,41 @@ class _WorkCardState extends State<WorkCard> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 7),
+          Row(children: [
+            if (work.workType == 'text' ||
+                work.textBody?.trim().isNotEmpty == true)
+              IconButton(
+                  tooltip: 'Leer o continuar',
+                  onPressed: () =>
+                      context.push('/work/${work.id}/chapter/0?resume=true'),
+                  icon: const Icon(Icons.menu_book_outlined,
+                      color: Colors.white, size: 20)),
+            IconButton(
+                tooltip: 'Guardar en una colección',
+                onPressed: _openingCollection
+                    ? null
+                    : () async {
+                        setState(() => _openingCollection = true);
+                        await showAddToCollection(context,
+                            work: work,
+                            profileId:
+                                context.read<AuthProvider?>()?.profile?.id);
+                        if (mounted) setState(() => _openingCollection = false);
+                      },
+                icon: const Icon(Icons.bookmark_add_outlined,
+                    color: Colors.white, size: 20)),
+            Expanded(
+                child: Text(
+                    widget.isNew
+                        ? 'Nuevo'
+                        : work.status == 'published'
+                            ? 'Publicado'
+                            : 'Borrador',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(color: Colors.white70, fontSize: 10))),
+          ]),
           Row(
             children: [
               GestureDetector(

@@ -117,7 +117,8 @@ void main() {
     expect(find.text('Después'), findsOneWidget);
   });
 
-  test('marking a linked chapter done updates its published work', () async {
+  test('saving a linked chapter never publishes without an explicit action',
+      () async {
     final node = _node();
     final project = _project(
       metadata: const {'publication_work_id': 'work-1'},
@@ -139,7 +140,9 @@ void main() {
     );
 
     expect(result.publicationLinked, isTrue);
-    expect(result.publicationSynced, isTrue);
+    expect(result.publicationSynced, isFalse);
+    expect(service.syncCalls, 0);
+    await provider.syncPublication();
     expect(service.syncCalls, 1);
     expect(service.syncedNodes.single.body, 'Corregido');
     expect(service.syncedNodes.single.status, 'done');

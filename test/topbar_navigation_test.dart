@@ -105,8 +105,9 @@ void main() {
 
     // Encabezados de grupo
     expect(find.text('COMUNIDAD'), findsOneWidget);
-    expect(find.text('TRAYECTORIA'), findsOneWidget);
-    expect(find.text('ARCHIVO Y ORGANIZACIÓN'), findsOneWidget);
+    expect(find.text('ARCHIVO'), findsOneWidget);
+    expect(find.text('CUENTA'), findsOneWidget);
+    expect(find.text('HERRAMIENTAS'), findsOneWidget);
 
     // Los destinos que bajaron de la barra viven aquí
     expect(find.text('Arena Corvus'), findsOneWidget);

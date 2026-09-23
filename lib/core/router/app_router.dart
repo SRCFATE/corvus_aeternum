@@ -36,6 +36,7 @@ import '../../features/atelier/billing/presentation/plans_page.dart';
 import '../../features/atelier/billing/presentation/workspace_detail_page.dart';
 import '../../features/atelier/billing/presentation/workspaces_page.dart';
 import 'navigation_coordinator.dart';
+import '../../shared/widgets/corvus_breadcrumbs.dart';
 import '../../features/insights/insights_page.dart';
 import '../../features/planner/planner_page.dart';
 import '../../features/arena/arena_page.dart';
@@ -227,7 +228,10 @@ GoRouter buildRouter() {
               final extra = state.extra as Map<String, dynamic>?;
 
               return NoTransitionPage(
-                child: AtelierPage(initialProject: extra),
+                child: AtelierPage(
+                    initialProject: extra,
+                    openProjectId: state.uri.queryParameters['project'],
+                    openNodeId: state.uri.queryParameters['node']),
               );
             },
           ),
@@ -297,14 +301,20 @@ GoRouter buildRouter() {
             routes: [
               GoRoute(
                 path: 'create',
-                builder: (_, __) => const CreateForumPage(),
+                builder: (_, __) => const CorvusRouteFrame(items: [
+                  CorvusCrumb('Comunidades', '/forums'),
+                  CorvusCrumb('Crear comunidad')
+                ], confirmExit: true, child: CreateForumPage()),
               ),
               GoRoute(
                 path: ':id',
                 builder: (_, state) {
                   final forumId = state.pathParameters['id'];
                   if (forumId == null) return const ForumsPage();
-                  return ForumDetailPage(forumId: forumId);
+                  return CorvusRouteFrame(items: const [
+                    CorvusCrumb('Comunidades', '/forums'),
+                    CorvusCrumb('Comunidad')
+                  ], child: ForumDetailPage(forumId: forumId));
                 },
                 routes: [
                   GoRoute(
@@ -312,7 +322,14 @@ GoRouter buildRouter() {
                     builder: (_, state) {
                       final forumId = state.pathParameters['id'];
                       if (forumId == null) return const ForumsPage();
-                      return CreateForumPage(forumId: forumId);
+                      return CorvusRouteFrame(
+                          items: [
+                            const CorvusCrumb('Comunidades', '/forums'),
+                            CorvusCrumb('Comunidad', '/forums/$forumId'),
+                            const CorvusCrumb('Editar')
+                          ],
+                          confirmExit: true,
+                          child: CreateForumPage(forumId: forumId));
                     },
                   ),
                   GoRoute(
@@ -323,10 +340,16 @@ GoRouter buildRouter() {
                       if (forumId == null || threadId == null) {
                         return const ForumsPage();
                       }
-                      return ForumThreadPage(
-                        forumId: forumId,
-                        threadId: threadId,
-                      );
+                      return CorvusRouteFrame(
+                          items: [
+                            const CorvusCrumb('Comunidades', '/forums'),
+                            CorvusCrumb('Comunidad', '/forums/$forumId'),
+                            const CorvusCrumb('Conversación')
+                          ],
+                          child: ForumThreadPage(
+                            forumId: forumId,
+                            threadId: threadId,
+                          ));
                     },
                   ),
                 ],
@@ -341,7 +364,10 @@ GoRouter buildRouter() {
             routes: [
               GoRoute(
                 path: 'edit',
-                builder: (_, __) => const EditProfilePage(),
+                builder: (_, __) => const CorvusRouteFrame(items: [
+                  CorvusCrumb('Mi perfil', '/profile'),
+                  CorvusCrumb('Editar perfil')
+                ], confirmExit: true, child: EditProfilePage()),
               ),
             ],
           ),
@@ -358,7 +384,10 @@ GoRouter buildRouter() {
         builder: (_, state) {
           final workId = state.pathParameters['id'];
           if (workId == null) return const FeedPage();
-          return WorkDetailPage(workId: workId);
+          return CorvusRouteFrame(items: const [
+            CorvusCrumb('Descubrir', '/discover'),
+            CorvusCrumb('Obra')
+          ], child: WorkDetailPage(workId: workId));
         },
         routes: [
           GoRoute(
@@ -368,7 +397,10 @@ GoRouter buildRouter() {
               final idx =
                   int.tryParse(state.pathParameters['chapterIndex'] ?? '0') ??
                       0;
-              return WorkChapterPage(workId: workId, initialChapter: idx);
+              return WorkChapterPage(
+                  workId: workId,
+                  initialChapter: idx,
+                  resume: state.uri.queryParameters['resume'] == 'true');
             },
           ),
         ],
@@ -387,35 +419,54 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/collection/create',
-        builder: (_, __) => const CreateCollectionPage(),
+        builder: (_, __) => const CorvusRouteFrame(items: [
+          CorvusCrumb('Colecciones', '/collections'),
+          CorvusCrumb('Crear colección')
+        ], confirmExit: true, child: CreateCollectionPage()),
       ),
       GoRoute(
         path: '/collection/:id',
         builder: (_, state) {
           final collectionId = state.pathParameters['id'];
           if (collectionId == null) return const CollectionsPage();
-          return CollectionDetailPage(collectionId: collectionId);
+          return CorvusRouteFrame(items: const [
+            CorvusCrumb('Colecciones', '/collections'),
+            CorvusCrumb('Colección')
+          ], child: CollectionDetailPage(collectionId: collectionId));
         },
         routes: [
           GoRoute(
             path: 'edit',
             builder: (_, state) {
               final collectionId = state.pathParameters['id'];
-              return CreateCollectionPage(collectionId: collectionId);
+              return CorvusRouteFrame(
+                  items: [
+                    const CorvusCrumb('Colecciones', '/collections'),
+                    CorvusCrumb('Colección', '/collection/$collectionId'),
+                    const CorvusCrumb('Editar')
+                  ],
+                  confirmExit: true,
+                  child: CreateCollectionPage(collectionId: collectionId));
             },
           ),
         ],
       ),
       GoRoute(
         path: '/auction/create',
-        builder: (_, __) => const CreateAuctionPage(),
+        builder: (_, __) => const CorvusRouteFrame(items: [
+          CorvusCrumb('Subastas', '/auctions'),
+          CorvusCrumb('Crear subasta')
+        ], confirmExit: true, child: CreateAuctionPage()),
       ),
       GoRoute(
         path: '/certificate/:number',
         builder: (_, state) {
           final number = state.pathParameters['number'];
           if (number == null) return const CertificatesPage();
-          return CertificateDetailPage(certificateNumber: number);
+          return CorvusRouteFrame(items: const [
+            CorvusCrumb('Certificados', '/certificates'),
+            CorvusCrumb('Certificado')
+          ], child: CertificateDetailPage(certificateNumber: number));
         },
       ),
       GoRoute(
@@ -423,14 +474,24 @@ GoRouter buildRouter() {
         builder: (_, state) {
           final auctionId = state.pathParameters['id'];
           if (auctionId == null) return const AuctionsPage();
-          return AuctionDetailPage(auctionId: auctionId);
+          return CorvusRouteFrame(items: const [
+            CorvusCrumb('Subastas', '/auctions'),
+            CorvusCrumb('Subasta')
+          ], child: AuctionDetailPage(auctionId: auctionId));
         },
         routes: [
           GoRoute(
             path: 'edit',
             builder: (_, state) {
               final auctionId = state.pathParameters['id'];
-              return CreateAuctionPage(auctionId: auctionId);
+              return CorvusRouteFrame(
+                  items: [
+                    const CorvusCrumb('Subastas', '/auctions'),
+                    CorvusCrumb('Subasta', '/auction/$auctionId'),
+                    const CorvusCrumb('Editar')
+                  ],
+                  confirmExit: true,
+                  child: CreateAuctionPage(auctionId: auctionId));
             },
           ),
         ],
@@ -441,7 +502,10 @@ GoRouter buildRouter() {
         builder: (_, state) {
           final username = state.pathParameters['username'];
           if (username == null) return const FeedPage();
-          return ProfilePage(username: username);
+          return CorvusRouteFrame(items: const [
+            CorvusCrumb('Artistas', '/artists'),
+            CorvusCrumb('Perfil')
+          ], child: ProfilePage(username: username));
         },
       ),
       GoRoute(
@@ -486,7 +550,10 @@ GoRouter buildRouter() {
             builder: (_, state) {
               final id = state.pathParameters['id'];
               if (id == null) return const WorkspacesPage();
-              return WorkspaceDetailPage(workspaceId: id);
+              return CorvusRouteFrame(items: const [
+                CorvusCrumb('Espacios de trabajo', '/workspaces'),
+                CorvusCrumb('Espacio de trabajo')
+              ], child: WorkspaceDetailPage(workspaceId: id));
             },
           ),
         ],

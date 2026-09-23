@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/router/session_page_state.dart';
+import '../../core/page_load_trace.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/corvus_design.dart';
@@ -8,6 +10,8 @@ import '../../models/artist_ranking.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/conspiration_provider.dart';
 import '../../services/profile_service.dart';
+import '../../services/work_ranking_service.dart';
+import 'work_ranking_sliver.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
@@ -29,48 +33,80 @@ const _rankingDisciplines = [
 
 class RankingPage extends StatefulWidget {
   final ProfileService? service;
+  final WorkRankingService? workService;
 
-  const RankingPage({super.key, this.service});
+  const RankingPage({super.key, this.service, this.workService});
 
   @override
   State<RankingPage> createState() => _RankingPageState();
 }
 
-class _RankingPageState extends State<RankingPage> {
+class _RankingPageState extends State<RankingPage> with SessionPageState {
   late final ProfileService _service;
+  late final WorkRankingService _workService;
+  WorkRankingMode? _mode;
+  List<WorkRankingEntry> _works = const [];
+  bool get _empty => _mode == null ? _entries.isEmpty : _works.isEmpty;
 
   List<ArtistRankingEntry> _entries = const [];
   String _discipline = 'Todas';
   bool _loading = true;
   String? _error;
+  int _request = 0;
+  PageLoadTrace? _trace;
+  @override
+  String get sessionKey => 'ranking.filters';
+  @override
+  Map<String, dynamic> captureSession() =>
+      {'discipline': _discipline, 'mode': _mode?.value};
+  @override
+  void restoreSession(Map<String, dynamic> value) {
+    _discipline = value['discipline'] as String? ?? 'Todas';
+    _mode = WorkRankingMode.values
+        .where((mode) => mode.value == value['mode'])
+        .firstOrNull;
+    _load();
+  }
 
   @override
   void initState() {
     super.initState();
     _service = widget.service ?? ProfileService();
+    _workService = widget.workService ?? WorkRankingService();
     _load();
   }
 
   Future<void> _load() async {
+    final request = ++_request;
+    _trace?.cancel();
+    final trace = _trace = PageLoadTrace('ranking');
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final entries = await _service.getArtistRanking(
-        discipline: _discipline == 'Todas' ? null : _discipline,
-      );
-      if (!mounted) return;
+      final mode = _mode;
+      final discipline = _discipline == 'Todas' ? null : _discipline;
+      final entries = mode == null
+          ? await _service.getArtistRanking(discipline: discipline)
+          : null;
+      final works = mode != null
+          ? await _workService.load(mode, discipline: discipline)
+          : null;
+      if (!mounted || request != _request) return;
       setState(() {
-        _entries = entries;
+        if (entries != null) _entries = entries;
+        if (works != null) _works = works;
         _loading = false;
       });
+      trace.rendered(isCurrent: () => mounted && request == _request);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _loading = false;
         _error = 'No pudimos abrir la clasificación en este momento.';
       });
+      trace.cancel();
     }
   }
 
@@ -78,6 +114,12 @@ class _RankingPageState extends State<RankingPage> {
     if (discipline == _discipline) return;
     setState(() => _discipline = discipline);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _trace?.cancel();
+    super.dispose();
   }
 
   @override
@@ -92,19 +134,62 @@ class _RankingPageState extends State<RankingPage> {
         onRefresh: _load,
         child: CorvusPage(
           child: CustomScrollView(
+            key: const PageStorageKey('ranking.scroll'),
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
                 padding: const EdgeInsets.only(top: 30, bottom: 22),
                 sliver: SliverToBoxAdapter(
                   child: CorvusReveal(
-                    child: _RankingHeader(
-                      accent: accent,
-                      count: _entries.length,
-                      onMethodology: () => _showMethodology(context, accent),
-                    ),
+                    child: _mode == null
+                        ? _RankingHeader(
+                            accent: accent,
+                            count: _entries.length,
+                            onMethodology: () =>
+                                _showMethodology(context, accent),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                                Text(_mode!.label,
+                                    style: CorvusType.display
+                                        .copyWith(fontSize: 32)),
+                                const SizedBox(height: 12),
+                                Text(_mode!.explanation),
+                                const SizedBox(height: 8),
+                                const Text(
+                                    'Hasta 40 obras públicas por disciplina.'),
+                              ]),
                   ),
                 ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: DropdownButtonFormField<String>(
+                      key: ValueKey(_mode),
+                      initialValue: _mode?.value ?? 'artists',
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                          labelText: 'Explorar clasificación'),
+                      items: [
+                        const DropdownMenuItem(
+                            value: 'artists',
+                            child: Text('Trayectorias de artistas')),
+                        for (final mode in WorkRankingMode.values)
+                          DropdownMenuItem(
+                              value: mode.value, child: Text(mode.label))
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _mode = WorkRankingMode.values
+                              .where((mode) => mode.value == value)
+                              .firstOrNull;
+                          _works = const [];
+                        });
+                        _load();
+                      },
+                    )),
               ),
               SliverToBoxAdapter(
                 child: _DisciplineRail(
@@ -114,14 +199,23 @@ class _RankingPageState extends State<RankingPage> {
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 28)),
-              if (_loading)
+              if (_loading && !_empty)
+                const SliverToBoxAdapter(child: LinearProgressIndicator()),
+              if (_error != null && !_empty)
+                SliverToBoxAdapter(
+                    child: ListTile(
+                        title: Text(_error!),
+                        trailing: TextButton(
+                            onPressed: _load,
+                            child: const Text('Reintentar')))),
+              if (_loading && _empty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: CorvusCrowLoader(label: 'Calculando el índice...'),
                   ),
                 )
-              else if (_error != null)
+              else if (_error != null && _empty)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: CorvusEmptyState(
@@ -132,16 +226,25 @@ class _RankingPageState extends State<RankingPage> {
                     onAction: _load,
                   ),
                 )
-              else if (_entries.isEmpty)
-                const SliverFillRemaining(
+              else if (_empty)
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: CorvusEmptyState(
                     icon: Icons.workspace_premium_outlined,
-                    title: 'Aún no hay trayectorias',
-                    subtitle:
-                        'La primera obra publicada inaugurará esta edición.',
+                    title: _mode == null
+                        ? 'Aún no hay trayectorias'
+                        : 'Aún no hay obras en esta selección',
+                    subtitle: _mode == WorkRankingMode.trending
+                        ? 'Se necesitan visitas recientes con crecimiento para mostrar una tendencia.'
+                        : _mode == WorkRankingMode.editorial
+                            ? 'Las elecciones aparecerán cuando el equipo editorial las añada.'
+                            : 'Prueba otra disciplina o explora las obras publicadas.',
+                    actionText: 'Descubrir obras',
+                    onAction: () => context.go('/discover'),
                   ),
                 )
+              else if (_mode != null)
+                WorkRankingSliver(entries: _works, mode: _mode!)
               else ...[
                 SliverToBoxAdapter(
                   child: CorvusReveal(

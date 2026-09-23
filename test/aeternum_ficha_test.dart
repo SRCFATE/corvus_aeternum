@@ -64,7 +64,7 @@ void main() {
           body: 'Protagonista.',
           status: 'draft',
           canonStatus: 'canon',
-          visibility: 'private',
+          visibility: 'public',
           tags: const [],
           metadata: const {},
           position: 0,
@@ -80,7 +80,7 @@ void main() {
           body: '',
           status: 'draft',
           canonStatus: 'canon',
-          visibility: 'private',
+          visibility: 'public',
           tags: const ['ciudad'],
           metadata: const {},
           position: 1,
@@ -101,6 +101,35 @@ void main() {
       expect(ficha.relatedCharacters, ['Carlos']);
       expect(ficha.relatedPlaces, ['Distrito Central']);
       expect(ficha.linkedNodes, ['Carlos', 'Distrito Central']);
+      final privateFicha = AeternumFicha.fromAtelier(
+          project: project,
+          nodes: nodes
+              .map((node) => node.copyWith(visibility: 'private'))
+              .toList(),
+          relations: const [],
+          versions: const []);
+      expect(privateFicha.relatedCharacters, isEmpty);
+      expect(privateFicha.linkedNodes, isEmpty);
+      expect(privateFicha.toMap().containsKey('public_references'), isFalse);
+      final publishedReferences = ficha.toMap()['public_references'] as List;
+      expect(publishedReferences.first['id'], 'node-1');
+      expect(publishedReferences.first['body'], 'Protagonista.');
+      for (final kind in atelierWorldKinds) {
+        final allKinds = AeternumFicha.fromAtelier(
+            project: project,
+            nodes: [nodes.first.copyWith(kind: kind)],
+            relations: const [],
+            versions: const []);
+        expect((allKinds.toMap()['public_references'] as List).single['id'],
+            'node-1',
+            reason: kind);
+        final deleted = AeternumFicha.fromAtelier(project: project, nodes: [
+          nodes.first.copyWith(
+              kind: kind, metadata: {'deleted_at': now.toIso8601String()})
+        ], relations: const [], versions: const []);
+        expect(deleted.toMap().containsKey('public_references'), isFalse,
+            reason: kind);
+      }
     });
 
     test('omits empty optional values from the JSON payload', () {

@@ -1,21 +1,20 @@
-import 'dart:async';
+import 'global_search_dialog.dart';
+
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/corvus_breakpoints.dart';
 import '../../core/theme/corvus_design.dart';
 import '../../core/router/navigation_coordinator.dart';
-import '../../models/work.dart';
-import '../../models/user_profile.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/conspiration_provider.dart';
-import '../../services/work_service.dart';
-import '../../services/profile_service.dart';
+
 import '../../shared/widgets/user_avatar.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import '../work/upload_wizard_sheet.dart';
@@ -33,6 +32,9 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  PageStorageBucket _sessionStorage = PageStorageBucket();
+  String? _sessionProfileId;
+
   /// El cajón vive en el Scaffold del shell, y las páginas de dentro traen el
   /// suyo propio. Sin una llave explícita, `Scaffold.of` encontraría el de la
   /// página —que no tiene cajón— y el botón no haría nada.
@@ -123,6 +125,11 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final profileId = context.watch<AuthProvider>().profile?.id;
+    if (profileId != _sessionProfileId) {
+      _sessionProfileId = profileId;
+      _sessionStorage = PageStorageBucket();
+    }
     final location = GoRouterState.of(context).matchedLocation;
     final selectedIndex = _locationToIndex(location);
     final layout = CorvusLayout.of(context);
@@ -130,53 +137,64 @@ class _HomeShellState extends State<HomeShell> {
 
     void goToTab(int i) => _goTo(context, _tabs[i]);
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: AppColors.background,
-      // El cajón solo existe en táctil. En escritorio, la barra superior ya
-      // muestra todos los destinos y un cajón sería una segunda respuesta a la
-      // misma pregunta.
-      drawer: isDesktop
-          ? null
-          : _CorvusMobileDrawer(
-              selectedIndex: selectedIndex,
-              onTabSelected: goToTab,
-              onNotifications: () => _pushTo(context, '/notifications'),
-              onAdmin: () => _pushTo(context, '/admin'),
-            ),
-      bottomNavigationBar: isDesktop
-          ? null
-          : _CorvusBottomNav(
-              selectedIndex: selectedIndex,
-              onTabSelected: goToTab,
-            ),
-      body: Column(
-        children: [
-          if (isDesktop)
-            _CorvusDesktopBar(
-              selectedIndex: selectedIndex,
-              onTabSelected: goToTab,
-              onUpload: () => showUploadWizard(context),
-              onNotifications: () => _pushTo(context, '/notifications'),
-              onAdmin: () => _pushTo(context, '/admin'),
-            )
-          else
-            _CorvusMobileBar(
-              selectedIndex: selectedIndex,
-              onTabSelected: goToTab,
-              onUpload: () => showUploadWizard(context),
-              onNotifications: () => _pushTo(context, '/notifications'),
-              onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-          Expanded(
-            child: CorvusPageTransition(
-              pageKey: location,
-              child: widget.child,
-            ),
-          ),
-        ],
-      ),
-    );
+    return CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+              showGlobalSearch(context),
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true): () =>
+              showGlobalSearch(context),
+        },
+        child: Focus(
+            autofocus: true,
+            child: Scaffold(
+              key: _scaffoldKey,
+              backgroundColor: AppColors.background,
+              // El cajón solo existe en táctil. En escritorio, la barra superior ya
+              // muestra todos los destinos y un cajón sería una segunda respuesta a la
+              // misma pregunta.
+              drawer: isDesktop
+                  ? null
+                  : _CorvusMobileDrawer(
+                      selectedIndex: selectedIndex,
+                      onTabSelected: goToTab,
+                      onNotifications: () => _pushTo(context, '/notifications'),
+                      onAdmin: () => _pushTo(context, '/admin'),
+                    ),
+              bottomNavigationBar: isDesktop
+                  ? null
+                  : _CorvusBottomNav(
+                      selectedIndex: selectedIndex,
+                      onTabSelected: goToTab,
+                    ),
+              body: Column(
+                children: [
+                  if (isDesktop)
+                    _CorvusDesktopBar(
+                      selectedIndex: selectedIndex,
+                      onTabSelected: goToTab,
+                      onUpload: () => showUploadWizard(context),
+                      onNotifications: () => _pushTo(context, '/notifications'),
+                      onAdmin: () => _pushTo(context, '/admin'),
+                    )
+                  else
+                    _CorvusMobileBar(
+                      selectedIndex: selectedIndex,
+                      onTabSelected: goToTab,
+                      onUpload: () => showUploadWizard(context),
+                      onNotifications: () => _pushTo(context, '/notifications'),
+                      onOpenMenu: () => _scaffoldKey.currentState?.openDrawer(),
+                    ),
+                  Expanded(
+                    child: PageStorage(
+                        bucket: _sessionStorage,
+                        child: CorvusPageTransition(
+                          pageKey: location,
+                          child: widget.child,
+                        )),
+                  ),
+                ],
+              ),
+            )));
   }
 }
 
@@ -946,93 +964,74 @@ class _MoreGroup {
 }
 
 const _moreGroups = <_MoreGroup>[
-  _MoreGroup(
-    title: 'Comunidad',
-    entries: [
-      _MoreEntry(
+  _MoreGroup(title: 'Comunidad', entries: [
+    _MoreEntry(
         index: 15,
         label: 'Foros de autores',
         hint: 'Círculos privados de conversación',
-        icon: Icons.forum_outlined,
-      ),
-      _MoreEntry(
-        index: 7,
-        label: 'Mundiarium',
-        hint: 'Universos, mapas y linajes',
-        icon: Icons.public_rounded,
-      ),
-      _MoreEntry(
+        icon: Icons.forum_outlined),
+    _MoreEntry(
         index: 12,
         label: 'Arena Corvus',
         hint: 'Desafíos y duelos creativos',
-        icon: Icons.emoji_events_outlined,
-      ),
-      _MoreEntry(
-        index: 17,
-        label: 'Espacios de trabajo',
-        hint: 'Estudios, editoriales y equipos',
-        icon: Icons.workspaces_outlined,
-      ),
-    ],
-  ),
-  _MoreGroup(
-    title: 'Trayectoria',
-    entries: [
-      _MoreEntry(
+        icon: Icons.emoji_events_outlined),
+    _MoreEntry(
         index: 14,
         label: 'Libro de las Conspiraciones',
         hint: 'Tus casas, progreso y Mudas',
-        icon: Icons.workspaces_outline,
-      ),
-      _MoreEntry(
-        index: 9,
-        label: 'Certificados',
-        hint: 'Autoría sellada y procedencia',
-        icon: Icons.verified_outlined,
-      ),
-      _MoreEntry(
-        index: 10,
-        label: 'Pulso creativo',
-        hint: 'Ritmo, alcance y evolución',
-        icon: Icons.insights_outlined,
-      ),
-      _MoreEntry(
-        index: 16,
-        label: 'Plan y facturación',
-        hint: 'Tu plan de Atelier, uso y pagos',
-        icon: Icons.workspace_premium_outlined,
-      ),
-      _MoreEntry(
-        index: 18,
-        label: 'Configuración',
-        hint: 'Lectura, accesibilidad y cuenta',
-        icon: Icons.tune_rounded,
-      ),
-    ],
-  ),
-  _MoreGroup(
-    title: 'Archivo y organización',
-    entries: [
-      _MoreEntry(
+        icon: Icons.workspaces_outline),
+  ]),
+  _MoreGroup(title: 'Archivo', entries: [
+    _MoreEntry(
         index: 8,
         label: 'Archivo Aeternum',
         hint: 'Tu obra registrada y preservada',
-        icon: Icons.account_tree_outlined,
-      ),
-      _MoreEntry(
+        icon: Icons.account_tree_outlined),
+    _MoreEntry(
+        index: 9,
+        label: 'Certificados',
+        hint: 'Autoría sellada y procedencia',
+        icon: Icons.verified_outlined),
+  ]),
+  _MoreGroup(title: 'Cuenta', entries: [
+    _MoreEntry(
+        index: 16,
+        label: 'Plan y facturación',
+        hint: 'Tu plan de Atelier, uso y pagos',
+        icon: Icons.workspace_premium_outlined),
+    _MoreEntry(
+        index: 18,
+        label: 'Configuración',
+        hint: 'Lectura, accesibilidad y cuenta',
+        icon: Icons.tune_rounded),
+  ]),
+  _MoreGroup(title: 'Herramientas', entries: [
+    _MoreEntry(
+        index: 7,
+        label: 'Mundiarium',
+        hint: 'Universos, mapas y linajes',
+        icon: Icons.public_rounded),
+    _MoreEntry(
+        index: 17,
+        label: 'Espacios de trabajo',
+        hint: 'Estudios, editoriales y equipos',
+        icon: Icons.workspaces_outlined),
+    _MoreEntry(
+        index: 10,
+        label: 'Pulso creativo',
+        hint: 'Ritmo, alcance y evolución',
+        icon: Icons.insights_outlined),
+    _MoreEntry(
         index: 11,
         label: 'Calendario y diario',
         hint: 'Planeación y bitácora',
-        icon: Icons.calendar_month_outlined,
-      ),
-      _MoreEntry(
+        icon: Icons.calendar_month_outlined),
+    _MoreEntry(
         index: 13,
         label: 'Glosario',
         hint: 'Códice de términos del archivo',
-        icon: Icons.menu_book_outlined,
-      ),
-    ],
-  ),
+        icon: Icons.menu_book_outlined),
+  ]),
 ];
 
 /// Índices que viven dentro del menú "Más".
@@ -1185,11 +1184,16 @@ class _MoreMenuOverlay extends StatelessWidget {
               ).animate(curved),
               child: Material(
                 type: MaterialType.transparency,
-                child: _MoreMenuPanel(
-                  accent: accent,
-                  selectedIndex: selectedIndex,
-                  onSelect: onSelect,
-                ),
+                child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                        maxHeight: (overlaySize.height - anchor.dy - 16)
+                            .clamp(100, double.infinity)),
+                    child: SingleChildScrollView(
+                        child: _MoreMenuPanel(
+                      accent: accent,
+                      selectedIndex: selectedIndex,
+                      onSelect: onSelect,
+                    ))),
               ),
             ),
           ),
@@ -1254,14 +1258,16 @@ class _MoreMenuPanel extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.all(CorvusSpacing.lg),
                   child: wide
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      ? Wrap(
+                          spacing: CorvusSpacing.lg,
+                          runSpacing: CorvusSpacing.lg,
                           children: [
-                            for (var i = 0; i < _moreGroups.length; i++) ...[
-                              Expanded(child: _buildGroup(_moreGroups[i])),
-                              if (i < _moreGroups.length - 1)
-                                const SizedBox(width: CorvusSpacing.md),
-                            ],
+                            for (final group in _moreGroups)
+                              SizedBox(
+                                  width: (constraints.maxWidth -
+                                          CorvusSpacing.lg * 3) /
+                                      2,
+                                  child: _buildGroup(group)),
                           ],
                         )
                       : Column(
@@ -1742,425 +1748,19 @@ class _PrimaryPillButtonState extends State<_PrimaryPillButton> {
 // ─────────────────────────────────────────────────────────────
 
 void showGlobalSearch(BuildContext context) {
-  showGeneralDialog(
+  final profileId = context.read<AuthProvider>().profile?.id;
+  showDialog<void>(
     context: context,
-    barrierDismissible: true,
-    barrierLabel: 'search',
-    barrierColor: Colors.black.withValues(alpha: 0.65),
-    transitionDuration: const Duration(milliseconds: 220),
-    transitionBuilder: (_, anim, __, child) {
-      return FadeTransition(
-        opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
-        child: SlideTransition(
-          position: Tween(begin: const Offset(0, -0.04), end: Offset.zero)
-              .animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-          child: child,
-        ),
-      );
-    },
-    pageBuilder: (ctx, _, __) => _GlobalSearchOverlay(
-      onClose: () => Navigator.of(ctx).pop(),
-      onNavigate: (route) {
-        Navigator.of(ctx).pop();
-        ctx.push(route);
+    builder: (dialogContext) => GlobalSearchDialog(
+      profileId: profileId,
+      onNavigate: (route) async {
+        Navigator.pop(dialogContext);
+        if (!await AppNavigationCoordinator.instance.canNavigate() ||
+            !context.mounted) {
+          return;
+        }
+        context.push(route);
       },
     ),
   );
-}
-
-class _GlobalSearchOverlay extends StatefulWidget {
-  final VoidCallback onClose;
-  final ValueChanged<String> onNavigate;
-
-  const _GlobalSearchOverlay({required this.onClose, required this.onNavigate});
-
-  @override
-  State<_GlobalSearchOverlay> createState() => _GlobalSearchOverlayState();
-}
-
-class _GlobalSearchOverlayState extends State<_GlobalSearchOverlay> {
-  final _workService = WorkService();
-  final _profileService = ProfileService();
-  final _controller = TextEditingController();
-  final _focus = FocusNode();
-
-  List<Work> _works = [];
-  List<UserProfile> _artists = [];
-  bool _loading = false;
-  String _query = '';
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 80), () {
-      if (mounted) _focus.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focus.dispose();
-    _debounce?.cancel();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    setState(() => _query = value);
-    _debounce?.cancel();
-    if (value.trim().isEmpty) {
-      setState(() {
-        _works = [];
-        _artists = [];
-      });
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 300), _search);
-  }
-
-  Future<void> _search() async {
-    if (_query.trim().isEmpty) return;
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _workService.getDiscoverWorks(query: _query.trim(), limit: 5),
-      _profileService.getArtists(query: _query.trim(), limit: 5),
-    ]);
-    if (mounted) {
-      setState(() {
-        _works = results[0] as List<Work>;
-        _artists = results[1] as List<UserProfile>;
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hasResults = _works.isNotEmpty || _artists.isNotEmpty;
-
-    return Material(
-      color: Colors.transparent,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            MediaQuery.of(context).padding.top + 70,
-            24,
-            24,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 660),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Search input
-                Container(
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.40)),
-                    boxShadow: [
-                      BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.10),
-                          blurRadius: 24,
-                          offset: const Offset(0, 6)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 16),
-                      Icon(Icons.search_rounded,
-                          color: AppColors.primary, size: 22),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          focusNode: _focus,
-                          onChanged: _onChanged,
-                          style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500),
-                          decoration: InputDecoration(
-                            hintText: 'Buscar obras, artistas...',
-                            hintStyle: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.30),
-                                fontSize: 16),
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      if (_loading)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 14),
-                          child: SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.primary)),
-                        )
-                      else
-                        GestureDetector(
-                          onTap: widget.onClose,
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                                border: Border(
-                                    left: BorderSide(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.07)))),
-                            child: Icon(Icons.close_rounded,
-                                size: 18,
-                                color: Colors.white.withValues(alpha: 0.38)),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-
-                // Results panel
-                if (_query.isNotEmpty && hasResults) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.07)),
-                      boxShadow: [
-                        BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8))
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_artists.isNotEmpty) ...[
-                            _SectionLabel(label: 'Artistas'),
-                            ..._artists.map((a) => _ArtistResult(
-                                  artist: a,
-                                  onTap: () => widget
-                                      .onNavigate('/profile/${a.username}'),
-                                )),
-                          ],
-                          if (_works.isNotEmpty && _artists.isNotEmpty)
-                            const Divider(height: 1, color: Colors.white10),
-                          if (_works.isNotEmpty) ...[
-                            _SectionLabel(label: 'Obras'),
-                            ..._works.map((w) => _WorkResult(
-                                  work: w,
-                                  onTap: () =>
-                                      widget.onNavigate('/work/${w.id}'),
-                                )),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ] else if (_query.isNotEmpty && !_loading) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.07)),
-                    ),
-                    child: Center(
-                      child: Text('Sin resultados para "$_query"',
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.38),
-                              fontSize: 14)),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ), // Align
-    ); // Material
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String label;
-  const _SectionLabel({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Text(
-        label.toUpperCase(),
-        style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.30),
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.2),
-      ),
-    );
-  }
-}
-
-class _ArtistResult extends StatefulWidget {
-  final UserProfile artist;
-  final VoidCallback onTap;
-  const _ArtistResult({required this.artist, required this.onTap});
-  @override
-  State<_ArtistResult> createState() => _ArtistResultState();
-}
-
-class _ArtistResultState extends State<_ArtistResult> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final a = widget.artist;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 130),
-          color: _hovered
-              ? Colors.white.withValues(alpha: 0.04)
-              : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.overlay,
-              backgroundImage: (a.avatarUrl != null && a.avatarUrl!.isNotEmpty)
-                  ? NetworkImage(a.avatarUrl!)
-                  : null,
-              child: (a.avatarUrl == null || a.avatarUrl!.isEmpty)
-                  ? Text(
-                      (a.displayName.isNotEmpty
-                              ? a.displayName[0]
-                              : a.username[0])
-                          .toUpperCase(),
-                      style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700))
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(a.displayName.isNotEmpty ? a.displayName : a.username,
-                      style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700)),
-                  Text('@${a.username}',
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.38),
-                          fontSize: 12)),
-                ])),
-            if (a.isArtistVerified)
-              Icon(Icons.verified_rounded, size: 14, color: AppColors.primary),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 12, color: Colors.white.withValues(alpha: 0.20)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorkResult extends StatefulWidget {
-  final Work work;
-  final VoidCallback onTap;
-  const _WorkResult({required this.work, required this.onTap});
-  @override
-  State<_WorkResult> createState() => _WorkResultState();
-}
-
-class _WorkResultState extends State<_WorkResult> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final w = widget.work;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 130),
-          color: _hovered
-              ? Colors.white.withValues(alpha: 0.04)
-              : Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: w.hasImage
-                    ? CachedNetworkImage(
-                        imageUrl: w.displayImage,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) =>
-                            Container(color: AppColors.overlay))
-                    : Container(
-                        color: AppColors.overlay,
-                        child: const Icon(Icons.image_outlined,
-                            color: AppColors.textMuted, size: 18)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text(w.title,
-                      style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  Text(w.authorDisplayName ?? w.authorUsername ?? '',
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.38),
-                          fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ])),
-            const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios_rounded,
-                size: 12, color: Colors.white.withValues(alpha: 0.20)),
-          ]),
-        ),
-      ),
-    );
-  }
 }

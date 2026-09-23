@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   final node = AtelierNode(
     id: 'node-1',
     projectId: 'project-1',
@@ -77,7 +79,7 @@ void main() {
       editor.controller.document.toPlainText(),
       contains('Texto modificado sin guardar'),
     );
-    expect(find.text('sin guardar'), findsOneWidget);
+    expect(find.textContaining('Sin guardar'), findsOneWidget);
     await tester.tap(find.byTooltip('Volver'));
     await tester.pumpAndSettle();
 

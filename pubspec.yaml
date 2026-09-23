@@ -37,6 +37,9 @@ dependencies:
 
   # Utilities
   path: ^1.9.1
+  file_selector: ^1.1.0
+  uuid: ^4.5.3
+  collection: ^1.19.1
   shared_preferences: ^2.5.4
   intl: ^0.20.2
 
@@ -57,9 +60,18 @@ dependencies:
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
+  http: ^1.6.0
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: CorvusLiterary
+      fonts:
+        - asset: assets/fonts/lora/Lora.ttf
+        - asset: assets/fonts/lora/Lora-Italic.ttf
+          style: italic
+  assets:
+    - assets/fonts/lora/OFL.txt

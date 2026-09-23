@@ -1,4 +1,29 @@
 import 'dart:convert';
+import '../features/work/work_reading_utils.dart';
+
+/// Tipos que pueden abrirse como fichas desde el manuscrito y la lectura.
+const atelierWorldKinds = <String>{
+  'universe',
+  'world',
+  'character',
+  'place',
+  'location',
+  'faction',
+  'family',
+  'organization',
+  'religion',
+  'culture',
+  'language',
+  'system',
+  'technology',
+  'magic',
+  'creature',
+  'object',
+  'event',
+  'map',
+  'concept',
+  'lore',
+};
 
 class AtelierWorkspace {
   final List<AtelierProject> projects;
@@ -186,9 +211,7 @@ class AtelierNode {
   }
 
   int get wordCount {
-    final text = body.trim();
-    if (text.isEmpty) return 0;
-    return RegExp(r'\S+').allMatches(text).length;
+    return WorkChapter(title: title, content: body).wordCount;
   }
 
   List<String> get wikilinks {
@@ -307,6 +330,7 @@ class AtelierVersion {
   final String description;
   final Map<String, dynamic> metadata;
   final DateTime createdAt;
+  final String authorName;
 
   const AtelierVersion({
     required this.id,
@@ -316,6 +340,7 @@ class AtelierVersion {
     required this.description,
     required this.metadata,
     required this.createdAt,
+    this.authorName = '',
   });
 
   factory AtelierVersion.fromMap(Map<String, dynamic> map) {
@@ -325,8 +350,18 @@ class AtelierVersion {
       profileId: map['profile_id'] as String,
       label: map['label'] as String? ?? 'Version',
       description: map['description'] as String? ?? '',
-      metadata: _jsonMap(map['metadata']),
+      metadata: {
+        ..._jsonMap(map['metadata']),
+        if (map['snapshot'] is Map) ...{
+          'snapshot_nodes': (map['snapshot'] as Map)['nodes'],
+          'snapshot_relations': (map['snapshot'] as Map)['relations'],
+          'snapshot_project': (map['snapshot'] as Map)['project'],
+        },
+      },
       createdAt: _date(map['created_at']),
+      authorName: map['profiles'] is Map
+          ? ((map['profiles'] as Map)['display_name'] as String? ?? '')
+          : map['author_name'] as String? ?? '',
     );
   }
 
@@ -337,6 +372,7 @@ class AtelierVersion {
         'description': description,
         'metadata': metadata,
         'created_at': createdAt.toIso8601String(),
+        'author_name': authorName,
       };
 }
 

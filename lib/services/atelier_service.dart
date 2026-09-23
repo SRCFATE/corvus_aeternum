@@ -1,12 +1,13 @@
 import 'dart:convert';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:collection/collection.dart';
 
 import '../core/supabase_config.dart';
+import '../core/rpc_error.dart';
 import '../models/aeternum_ficha.dart';
 import '../models/atelier_models.dart';
 import '../features/atelier/atelier_publication_text.dart';
-import 'work_service.dart';
 
 class AtelierSchemaException implements Exception {
   final String message;
@@ -16,11 +17,34 @@ class AtelierSchemaException implements Exception {
   String toString() => message;
 }
 
-class AtelierService {
-  final WorkService _workService;
+class AtelierConflictException implements Exception {
+  final AtelierNode? remote;
+  const AtelierConflictException({this.remote});
+  @override
+  String toString() =>
+      'Este elemento cambió en otra sesión. Conserva tu borrador y vuelve a abrir el proyecto para comparar los cambios.';
+}
 
-  AtelierService({WorkService? workService})
-      : _workService = workService ?? WorkService();
+class AtelierPublicationException implements Exception {
+  final String message;
+  const AtelierPublicationException(this.message);
+  @override
+  String toString() => message;
+}
+
+class AtelierService {
+  final SupabaseClient? _injectedClient;
+  SupabaseClient get client => _injectedClient ?? supabase;
+
+  AtelierService({SupabaseClient? client}) : _injectedClient = client;
+
+  Future<String> importProject(
+      Map<String, dynamic> payload, String requestId) async {
+    return await client.rpc('atelier_import_project', params: {
+      'p_payload': payload,
+      'p_request_id': requestId,
+    }) as String;
+  }
 
   Future<AtelierWorkspace> loadWorkspace(
     String profileId, {
@@ -29,30 +53,51 @@ class AtelierService {
     try {
       final projects = await getProjects(profileId);
 
-      if (projects.isEmpty) return const AtelierWorkspace.empty();
+      // Un enlace a un proyecto compartido se consulta bajo las mismas RLS.
+      if (projectId != null &&
+          !projects.any((project) => project.id == projectId)) {
+        final shared = await client
+            .from('atelier_projects')
+            .select()
+            .eq('id', projectId)
+            .maybeSingle();
+        if (shared != null) projects.add(AtelierProject.fromMap(shared));
+      }
+
+      final available = projects
+          .where((project) => project.metadata['deleted_at'] == null)
+          .toList();
+      if (available.isEmpty) {
+        return AtelierWorkspace(
+            projects: projects,
+            activeProject: null,
+            nodes: const [],
+            relations: const [],
+            versions: const []);
+      }
 
       final activeProject = projectId == null
-          ? projects.first
-          : projects.firstWhere(
+          ? available.first
+          : available.firstWhere(
               (project) => project.id == projectId,
-              orElse: () => projects.first,
+              orElse: () => available.first,
             );
 
       final results = await Future.wait([
-        supabase
+        client
             .from('atelier_nodes')
             .select()
             .eq('project_id', activeProject.id)
             .order('position', ascending: true)
             .order('updated_at', ascending: false),
-        supabase
+        client
             .from('atelier_relations')
             .select()
             .eq('project_id', activeProject.id)
             .order('created_at', ascending: false),
-        supabase
+        client
             .from('atelier_versions')
-            .select()
+            .select('*,profiles!atelier_versions_profile_id_fkey(display_name)')
             .eq('project_id', activeProject.id)
             .order('created_at', ascending: false),
       ]);
@@ -81,7 +126,7 @@ class AtelierService {
   }
 
   Future<List<AtelierProject>> getProjects(String profileId) async {
-    final projectRows = await supabase
+    final projectRows = await client
         .from('atelier_projects')
         .select()
         .eq('profile_id', profileId)
@@ -94,7 +139,7 @@ class AtelierService {
   Future<List<AtelierPlannerEntry>> getPlannerEntries(
     String profileId,
   ) async {
-    final rows = await supabase
+    final rows = await client
         .from('atelier_nodes')
         .select(
           '*, atelier_projects!atelier_nodes_project_id_fkey(title, type)',
@@ -108,6 +153,7 @@ class AtelierService {
             Map<String, dynamic>.from(row as Map),
           ),
         )
+        .where((entry) => entry.node.metadata['deleted_at'] == null)
         .toList();
   }
 
@@ -125,7 +171,7 @@ class AtelierService {
     Map<String, dynamic> metadata = const {},
   }) async {
     try {
-      final row = await supabase
+      final row = await client
           .from('atelier_projects')
           .insert({
             'profile_id': profileId,
@@ -154,7 +200,7 @@ class AtelierService {
   }
 
   Future<AtelierProject> updateProject(AtelierProject project) async {
-    final row = await supabase
+    final row = await client
         .from('atelier_projects')
         .update({
           ...project.toUpdateMap(),
@@ -168,7 +214,7 @@ class AtelierService {
   }
 
   Future<void> deleteProject(AtelierProject project) async {
-    await supabase
+    await client
         .from('atelier_projects')
         .delete()
         .eq('id', project.id)
@@ -176,6 +222,7 @@ class AtelierService {
   }
 
   Future<AtelierNode> createNode({
+    String? nodeId,
     required String profileId,
     required String projectId,
     required String kind,
@@ -188,28 +235,48 @@ class AtelierService {
     Map<String, dynamic> metadata = const {},
     int position = 0,
   }) async {
-    final row = await supabase
-        .from('atelier_nodes')
-        .insert({
-          'profile_id': profileId,
-          'project_id': projectId,
-          'kind': kind,
-          'title': title.trim().isEmpty ? 'Sin titulo' : title.trim(),
-          'body': body,
-          'status': status,
-          'canon_status': canonStatus,
-          'visibility': visibility,
-          'tags': tags,
-          'metadata': metadata,
-          'position': position,
-        })
-        .select()
-        .single();
-    return AtelierNode.fromMap(row);
+    final payload = {
+      if (nodeId != null) 'id': nodeId,
+      'profile_id': profileId,
+      'project_id': projectId,
+      'kind': kind,
+      'title': title.trim().isEmpty ? 'Sin titulo' : title.trim(),
+      'body': body,
+      'status': status,
+      'canon_status': canonStatus,
+      'visibility': visibility,
+      'tags': tags,
+      'metadata': metadata,
+      'position': position,
+    };
+    try {
+      final row =
+          await client.from('atelier_nodes').insert(payload).select().single();
+      return AtelierNode.fromMap(row);
+    } on PostgrestException catch (error) {
+      if (error.code != '23505' || nodeId == null) rethrow;
+      final row = await client
+          .from('atelier_nodes')
+          .select()
+          .eq('id', nodeId)
+          .eq('project_id', projectId)
+          .eq('profile_id', profileId)
+          .maybeSingle();
+      if (row == null) rethrow;
+      final existing = AtelierNode.fromMap(row);
+      // A duplicate acknowledgement is safe only if the first write is intact.
+      // Position may change independently when chapters are reordered.
+      final expected = Map<String, dynamic>.of(payload)..remove('position');
+      final actual = {for (final key in expected.keys) key: row[key]};
+      if (!const DeepCollectionEquality().equals(expected, actual)) {
+        throw AtelierConflictException(remote: existing);
+      }
+      return existing;
+    }
   }
 
   Future<AtelierNode> updateNode(AtelierNode node) async {
-    final row = await supabase
+    final row = await client
         .from('atelier_nodes')
         .update({
           ...node.toUpdateMap(),
@@ -217,13 +284,15 @@ class AtelierService {
         })
         .eq('id', node.id)
         .eq('profile_id', node.profileId)
+        .eq('updated_at', node.updatedAt.toUtc().toIso8601String())
         .select()
-        .single();
+        .maybeSingle();
+    if (row == null) throw const AtelierConflictException();
     return AtelierNode.fromMap(row);
   }
 
   Future<void> deleteNode(AtelierNode node) async {
-    await supabase
+    await client
         .from('atelier_nodes')
         .delete()
         .eq('id', node.id)
@@ -239,7 +308,7 @@ class AtelierService {
     String description = '',
     String canonStatus = 'canon',
   }) async {
-    final row = await supabase
+    final row = await client
         .from('atelier_relations')
         .insert({
           'profile_id': profileId,
@@ -257,7 +326,7 @@ class AtelierService {
   }
 
   Future<void> deleteRelation(AtelierRelation relation) async {
-    await supabase
+    await client
         .from('atelier_relations')
         .delete()
         .eq('id', relation.id)
@@ -271,18 +340,24 @@ class AtelierService {
     required String description,
     required Map<String, dynamic> metadata,
   }) async {
-    final row = await supabase
+    final result =
+        unwrapRpc(await client.rpc('atelier_create_snapshot', params: {
+      'p_project_id': projectId,
+      'p_label': label,
+      'p_description': description,
+      'p_kind': metadata['automatic'] == true ? 'auto' : 'manual',
+    }));
+    final row = await client
         .from('atelier_versions')
-        .insert({
-          'profile_id': profileId,
-          'project_id': projectId,
-          'label': label.trim().isEmpty ? 'Version' : label.trim(),
-          'description': description.trim(),
-          'metadata': metadata,
-        })
-        .select()
+        .select('*,profiles!atelier_versions_profile_id_fkey(display_name)')
+        .eq('id', result['version_id'] as String)
         .single();
     return AtelierVersion.fromMap(row);
+  }
+
+  Future<void> restoreVersion(AtelierVersion version) async {
+    unwrapRpc(await client
+        .rpc('atelier_restore_version', params: {'p_version_id': version.id}));
   }
 
   // Nodos del taller ordenados que entran en la publicación (solo con contenido).
@@ -294,7 +369,9 @@ class AtelierService {
     final studioKinds = _studioKindsForBranch(branch);
     return nodes
         .where((node) =>
-            studioKinds.contains(node.kind) && node.body.trim().isNotEmpty)
+            studioKinds.contains(node.kind) &&
+            node.metadata['deleted_at'] == null &&
+            node.body.trim().isNotEmpty)
         .toList()
       ..sort((a, b) => a.position.compareTo(b.position));
   }
@@ -303,8 +380,6 @@ class AtelierService {
     return composeAtelierPublicationText(publicationNodes);
   }
 
-  // Sincroniza el contenido del taller con la obra ya vinculada, sin tocar su
-  // estado ni su sello. Es el camino de la publicación por entregas.
   Future<({String workId, int chapters, bool isPublished})?> syncPublishedWork({
     required AtelierProject project,
     required List<AtelierNode> nodes,
@@ -313,36 +388,12 @@ class AtelierService {
   }) async {
     final workId = (project.metadata['publication_work_id'] as String?)?.trim();
     if (workId == null || workId.isEmpty) return null;
-
-    final publicationNodes = _publicationNodes(project, nodes);
-    final textBody = _composeTextBody(publicationNodes);
-    final ficha = AeternumFicha.fromAtelier(
-      project: project,
-      nodes: nodes,
-      relations: relations,
-      versions: versions,
-    );
-
-    final bool isPublished;
-    try {
-      final work = await _workService.getWorkById(workId);
-      isPublished = work.status == 'published';
-    } catch (_) {
-      return null; // La obra vinculada ya no existe.
-    }
-
-    await _workService.updateWork(workId, {
-      'text_body': textBody,
-      'aeternum_ficha': ficha.toMap(),
-      'atelier_project_id': project.id,
-      if (project.universe.trim().isNotEmpty) 'universe': project.universe,
-      'aeternum_status': project.status,
-    });
-    return (
-      workId: workId,
-      chapters: publicationNodes.length,
-      isPublished: isPublished,
-    );
+    return _commitPublication(
+        project: project,
+        nodes: nodes,
+        relations: relations,
+        versions: versions,
+        preparing: false);
   }
 
   Future<String> preparePublication({
@@ -350,75 +401,79 @@ class AtelierService {
     required List<AtelierNode> nodes,
     required List<AtelierRelation> relations,
     required List<AtelierVersion> versions,
-  }) async {
-    final branch = (project.metadata['atelier_branch'] as String?) ?? 'writing';
-    final publicationNodes = _publicationNodes(project, nodes);
-    final textBody = _composeTextBody(publicationNodes);
-    final ficha = AeternumFicha.fromAtelier(
-      project: project,
-      nodes: nodes,
-      relations: relations,
-      versions: versions,
-    );
+  }) async =>
+      (await _commitPublication(
+              project: project,
+              nodes: nodes,
+              relations: relations,
+              versions: versions,
+              preparing: true))
+          .workId;
 
+  Future<({String workId, int chapters, bool isPublished})> _commitPublication({
+    required AtelierProject project,
+    required List<AtelierNode> nodes,
+    required List<AtelierRelation> relations,
+    required List<AtelierVersion> versions,
+    required bool preparing,
+  }) async {
+    final currentNodes =
+        nodes.where((node) => node.metadata['deleted_at'] == null).toList();
+    final publicationNodes = _publicationNodes(project, currentNodes);
+    final branch = project.metadata['atelier_branch'] as String? ?? 'writing';
+    final ficha = AeternumFicha.fromAtelier(
+        project: project,
+        nodes: currentNodes,
+        relations: relations,
+        versions: versions);
     final synopsis = ((project.metadata['description'] as String?) ??
             (project.metadata['synopsis_short'] as String?))
         ?.trim();
-    final payload = {
-      'profile_id': project.profileId,
-      'title': project.title,
-      'description':
-          synopsis?.isNotEmpty == true ? synopsis : 'Preparado desde Atelier.',
-      'discipline': _publicationDiscipline(branch),
-      'subdiscipline': project.type,
-      'medium': project.genre,
-      'work_type': _publicationWorkType(branch),
-      'status': 'draft',
-      'is_public': false,
-      'is_complete': false,
-      'is_for_sale': false,
-      'is_mature': false,
-      'year': DateTime.now().year,
-      'tags': _projectTags(project, nodes),
-      'text_body': textBody,
-      'language': project.language,
-      'aeternum_ficha': ficha.toMap(),
-      'atelier_project_id': project.id,
-      if (project.universe.trim().isNotEmpty) 'universe': project.universe,
-      'aeternum_status': project.status,
-    };
-
-    final existingWorkId = project.metadata['publication_work_id'] as String?;
-    final workId = existingWorkId != null && existingWorkId.trim().isNotEmpty
-        ? await _updatePublicationDraft(existingWorkId.trim(), payload)
-        : (await _workService.createWork({
-            ...payload,
-            'media_urls': <String>[],
-          }))
-            .id;
-
-    final metadata = {
-      ...project.metadata,
-      'publication_work_id': workId,
-      'publication_prepared_at': DateTime.now().toUtc().toIso8601String(),
-    };
-    await updateProject(project.copyWith(metadata: metadata));
-    return workId;
-  }
-
-  Future<String> _updatePublicationDraft(
-    String workId,
-    Map<String, dynamic> payload,
-  ) async {
     try {
-      final work = await _workService.updateWork(workId, payload);
-      return work.id;
-    } catch (_) {
-      final work = await _workService.createWork({
-        ...payload,
-        'media_urls': <String>[],
+      final result = await client.rpc('atelier_commit_publication', params: {
+        'p_project_id': project.id,
+        'p_project_updated_at': project.updatedAt.toUtc().toIso8601String(),
+        'p_expected_nodes': currentNodes
+            .map((node) => {
+                  'id': node.id,
+                  'updated_at': node.updatedAt.toUtc().toIso8601String(),
+                })
+            .toList(),
+        'p_publication_snapshot': publicationNodes
+            .map((node) => {
+                  'id': node.id,
+                  'title': node.title,
+                  'body': node.body,
+                })
+            .toList(),
+        'p_payload': {
+          'description': synopsis?.isNotEmpty == true
+              ? synopsis
+              : 'Preparado desde Atelier.',
+          'discipline': _publicationDiscipline(branch),
+          'work_type': _publicationWorkType(branch),
+          'tags': _projectTags(project, publicationNodes),
+          'text_body': _composeTextBody(publicationNodes),
+          'aeternum_ficha': ficha.toMap(),
+        },
+        'p_preparing': preparing,
       });
-      return work.id;
+      final data = Map<String, dynamic>.from(result as Map);
+      return (
+        workId: data['work_id'] as String,
+        chapters: data['chapters'] as int,
+        isPublished: data['is_published'] as bool
+      );
+    } on PostgrestException catch (error) {
+      if (error.message.contains('EDITION_CHANGED')) {
+        throw const AtelierPublicationException(
+            'El proyecto cambió desde la revisión. Vuelve a abrir la comparación antes de enviar la edición.');
+      }
+      if (error.code == '42501') {
+        throw const AtelierPublicationException(
+            'Solo la persona propietaria puede enviar esta edición a la obra vinculada.');
+      }
+      rethrow;
     }
   }
 

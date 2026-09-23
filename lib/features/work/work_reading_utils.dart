@@ -6,7 +6,7 @@ class WorkChapter {
   const WorkChapter({required this.title, required this.content});
 
   String get preview {
-    final trimmed = _readingPlainText(content);
+    final trimmed = manuscriptPlainText(content);
     if (trimmed.isEmpty) return '';
     if (trimmed.length <= 140) return trimmed;
     final cut = trimmed.substring(0, 140);
@@ -15,7 +15,7 @@ class WorkChapter {
   }
 
   int get wordCount {
-    final visible = _readingPlainText(content);
+    final visible = manuscriptPlainText(content);
     if (visible.isEmpty) return 0;
     return visible.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
@@ -82,7 +82,7 @@ List<WorkChapter> _parseCorvusChapters(
 ) {
   final chapters = <WorkChapter>[];
   final preface = text.substring(0, headers.first.start).trim();
-  if (_readingPlainText(preface).isNotEmpty) {
+  if (manuscriptPlainText(preface).isNotEmpty) {
     chapters.add(WorkChapter(title: 'Prólogo', content: preface));
   }
 
@@ -98,7 +98,7 @@ List<WorkChapter> _parseCorvusChapters(
   return chapters;
 }
 
-String _readingPlainText(String source) {
+String manuscriptPlainText(String source) {
   var value = source
       .replaceAll(
         RegExp(

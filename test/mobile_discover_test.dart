@@ -1,4 +1,5 @@
 import 'package:corvus_aeternum/features/discover/discover_page.dart';
+import 'package:corvus_aeternum/features/discover/discovery_order.dart';
 import 'package:corvus_aeternum/models/aeternum_ficha.dart';
 import 'package:corvus_aeternum/models/work.dart';
 import 'package:corvus_aeternum/providers/auth_provider.dart';
@@ -6,6 +7,7 @@ import 'package:corvus_aeternum/services/work_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _DiscoverService extends WorkService {
   final List<Work> works;
@@ -23,14 +25,15 @@ class _DiscoverService extends WorkService {
 }
 
 void main() {
-  Work work(int index) {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  Work work(int index, {String discipline = 'Literatura'}) {
     final now = DateTime(2026);
     return Work(
       id: '$index',
       profileId: 'author',
       title: 'Obra $index',
       description: 'Descripción editorial',
-      discipline: 'Literatura',
+      discipline: discipline,
       subdiscipline: 'Narrativa',
       medium: 'Libro',
       mediaUrls: const [],
@@ -53,6 +56,14 @@ void main() {
       authorDisplayName: 'Autora de prueba',
     );
   }
+
+  test('discovery affinity keeps ties stable and never repeats a work', () {
+    final works = [work(1, discipline: 'Pintura'), work(2), work(3), work(2)];
+    expect(orderDiscoveryWorks(works, ['literatura']).map((work) => work.id),
+        ['2', '3', '1']);
+    expect(
+        orderDiscoveryWorks(works, []).map((work) => work.id), ['1', '2', '3']);
+  });
 
   testWidgets('Descubrir muestra dos portadas por fila en móvil',
       (tester) async {

@@ -165,6 +165,14 @@
   </div>
 
   <script>
+    // También cubre el arranque de desarrollo, que puede usar su propio loader.
+    window.addEventListener('flutter-first-frame', () => {
+      const boot = document.getElementById('corvus-boot');
+      if (!boot) return;
+      boot.classList.add('corvus-boot-done');
+      boot.addEventListener('transitionend', () => boot.remove(), { once: true });
+      setTimeout(() => boot.remove(), 900);
+    }, { once: true });
     // El arranque de Corvus.
     //
     // Antes esto borraba TODAS las cachés y desregistraba TODOS los service
@@ -182,7 +190,7 @@
       // Esta clave cambia cuando se modifica la estrategia de entrega. Obliga
       // a retirar el service worker y las cachés que todavía pudieran estar
       // sirviendo el paquete inmutable de la versión anterior.
-      const cacheVersion = 'corvus-web-20260908-reader-v2';
+      const cacheVersion = 'corvus-web-20260923-editorial-v4';
       const versionKey = 'corvus-build';
 
       const boot = () => {

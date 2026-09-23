@@ -1,27 +1,36 @@
-import 'dart:ui';
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/page_load_trace.dart';
 import '../../models/work.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/work_service.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
 import '../../shared/widgets/formatted_manuscript_text.dart';
-import '../../shared/widgets/user_avatar.dart';
-import 'upload_wizard_sheet.dart';
+
 import 'work_reading_utils.dart';
+import 'reader_preferences.dart';
 
 class WorkChapterPage extends StatefulWidget {
   final String workId;
   final int initialChapter;
+  final WorkService? service;
+  final bool resume;
 
   const WorkChapterPage({
     super.key,
     required this.workId,
     required this.initialChapter,
+    this.service,
+    this.resume = false,
   });
 
   @override
@@ -29,28 +38,67 @@ class WorkChapterPage extends StatefulWidget {
 }
 
 class _WorkChapterPageState extends State<WorkChapterPage> {
-  final _workService = WorkService();
+  late final _workService = widget.service ?? WorkService();
   Work? _work;
   List<WorkChapter> _chapters = [];
   bool _isLoading = true;
   late int _currentChapter;
-  double _fontSize = 16;
+  ReaderPreferences _preferences = const ReaderPreferences();
+  double get _fontSize => _preferences.fontSize;
+  SharedPreferences? _storage;
+  late final String _readerKey;
+  Timer? _positionTimer;
+  final _progress = ValueNotifier<double>(0);
+  bool _hideControls = false;
+  bool _restoringPosition = false;
+  final Map<int, double> _bookmarks = {};
   final _scrollController = ScrollController();
+  final _loadTrace = PageLoadTrace('reader');
 
   @override
   void initState() {
     super.initState();
     _currentChapter = widget.initialChapter;
+    _readerKey =
+        'corvus.reader.${context.read<AuthProvider>().profile?.id ?? 'visitor'}';
+    _scrollController.addListener(_onScroll);
     _load();
   }
 
   @override
   void dispose() {
+    _loadTrace.cancel();
+    _positionTimer?.cancel();
+    _savePosition();
+    _progress.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
+    try {
+      _storage = await SharedPreferences.getInstance();
+      if (widget.resume) {
+        _currentChapter =
+            _storage?.getInt('$_readerKey.${widget.workId}.last') ??
+                widget.initialChapter;
+      }
+      final raw = _storage?.getString(_readerKey);
+      if (raw != null) {
+        _preferences = ReaderPreferences.fromMap(
+            Map<String, dynamic>.from(jsonDecode(raw) as Map));
+      }
+      final marks =
+          _storage?.getString('$_readerKey.${widget.workId}.bookmarks');
+      if (marks != null) {
+        for (final entry in (jsonDecode(marks) as Map).entries) {
+          final index = int.tryParse(entry.key.toString());
+          if (index != null && entry.value is num) {
+            _bookmarks[index] = (entry.value as num).toDouble().clamp(0, 1);
+          }
+        }
+      }
+    } catch (_) {/* Las preferencias locales no impiden leer. */}
     try {
       final work = await _workService.getWorkById(widget.workId);
       if (mounted) {
@@ -62,20 +110,110 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
           _currentChapter = _currentChapter.clamp(0, lastChapterIndex).toInt();
           _isLoading = false;
         });
+        _restorePosition();
+        _loadTrace.rendered(isCurrent: () => mounted && !_isLoading);
       }
     } catch (_) {
+      _loadTrace.cancel();
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _openReference(String url) async {
+    if (!url.startsWith('corvus-node:')) {
+      final uri = Uri.tryParse(url);
+      if (uri != null && {'https', 'http', 'mailto'}.contains(uri.scheme)) {
+        try {
+          await launchUrl(uri);
+        } catch (_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No se pudo abrir el vínculo.')));
+          }
+        }
+      }
+      return;
+    }
+    final references = _work?.aeternumFicha.raw['public_references'];
+    final reference = references is List
+        ? references
+            .whereType<Map>()
+            .where((row) => row['id'] == url.substring(12))
+            .firstOrNull
+        : null;
+    if (reference == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Esta ficha no está incluida en la publicación.')));
+      return;
+    }
+    await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+            child: SizedBox(
+                height: MediaQuery.sizeOf(ctx).height * .7,
+                child: ListView(padding: const EdgeInsets.all(24), children: [
+                  Text(reference['title'] as String? ?? 'Ficha',
+                      style: Theme.of(ctx).textTheme.headlineSmall),
+                  const SizedBox(height: 16),
+                  FormattedManuscriptText(
+                      text: reference['body'] as String? ?? ''),
+                ]))));
+  }
+
   void _goToChapter(int index) {
     if (index < 0 || index >= _chapters.length) return;
+    _savePosition();
     setState(() => _currentChapter = index);
-    _scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeOut,
-    );
+    _restorePosition();
+  }
+
+  void _onScroll() {
+    if (_restoringPosition || !_scrollController.hasClients) return;
+    final max = _scrollController.position.maxScrollExtent;
+    _progress.value =
+        max > 0 ? (_scrollController.offset / max).clamp(0, 1) : 1;
+    _positionTimer?.cancel();
+    _positionTimer = Timer(const Duration(milliseconds: 400), _savePosition);
+  }
+
+  void _savePosition() {
+    _positionTimer?.cancel();
+    if (!_scrollController.hasClients || _restoringPosition || _isLoading) {
+      return;
+    }
+    unawaited(_storage
+        ?.setDouble(
+            '$_readerKey.${widget.workId}.$_currentChapter', _progress.value)
+        .catchError((Object _) => false));
+    unawaited(_storage
+        ?.setInt('$_readerKey.${widget.workId}.last', _currentChapter)
+        .catchError((Object _) => false));
+  }
+
+  void _restorePosition({double? fraction}) {
+    _restoringPosition = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final saved = fraction ??
+          _storage
+              ?.getDouble('$_readerKey.${widget.workId}.$_currentChapter') ??
+          0;
+      _scrollController.jumpTo(
+          saved.clamp(0, 1) * _scrollController.position.maxScrollExtent);
+      _progress.value = saved.clamp(0, 1);
+      _restoringPosition = false;
+    });
+  }
+
+  void _setPreferences(ReaderPreferences value) {
+    final progress = _progress.value;
+    setState(() => _preferences = value);
+    unawaited(_storage
+        ?.setString(_readerKey, jsonEncode(value.toMap()))
+        .catchError((Object _) => false));
+    _restorePosition(fraction: progress);
   }
 
   @override
@@ -113,250 +251,334 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
     final hasPrev = _currentChapter > 0;
     final hasNext = _currentChapter < _chapters.length - 1;
     final isSingleChapter = _chapters.length == 1;
+    final compact = MediaQuery.sizeOf(context).width < 700;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _buildGlobalTopBar(_work!),
-          _buildReaderTopBar(isSingleChapter),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppColors.primaryMuted.withValues(alpha: 0.12),
-                    AppColors.background,
-                  ],
-                ),
-              ),
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 860),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(28, 32, 28, 32),
-                          child: Container(
-                            padding: const EdgeInsets.fromLTRB(52, 44, 52, 50),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF100C14),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.26),
-                                  blurRadius: 34,
-                                  offset: const Offset(0, 18),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Center(
-                                  child: Wrap(
-                                    alignment: WrapAlignment.center,
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      _ReaderChip(
-                                        icon: Icons.auto_stories_rounded,
-                                        label: isSingleChapter
-                                            ? 'CAPÍTULO ÚNICO'
-                                            : 'CAPÍTULO ${_currentChapter + 1}',
-                                        color: AppColors.primary,
+    return CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+              _goToChapter(_currentChapter - 1),
+          const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+              _goToChapter(_currentChapter + 1),
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              setState(() => _hideControls = false),
+        },
+        child: Focus(
+            autofocus: true,
+            child: Scaffold(
+              backgroundColor: _preferences.background,
+              floatingActionButton: _hideControls
+                  ? FloatingActionButton.small(
+                      tooltip: 'Mostrar controles',
+                      onPressed: () => setState(() => _hideControls = false),
+                      child: const Icon(Icons.menu))
+                  : null,
+              body: Column(
+                children: [
+                  if (!_hideControls) _buildReaderTopBar(isSingleChapter),
+                  ValueListenableBuilder<double>(
+                      valueListenable: _progress,
+                      builder: (_, progress, child) => Column(children: [
+                            LinearProgressIndicator(
+                                value: progress,
+                                minHeight: 2,
+                                semanticsLabel: 'Progreso del capítulo',
+                                semanticsValue:
+                                    '${(progress * 100).round()} %'),
+                            if (!_hideControls)
+                              Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 4, horizontal: 12),
+                                  child: Text(
+                                      'Capítulo ${(progress * 100).round()} % · Obra ${((_currentChapter + progress) / _chapters.length * 100).round()} %',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: _preferences.foreground))),
+                          ])),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            _preferences.background,
+                            _preferences.background,
+                          ],
+                        ),
+                      ),
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                    maxWidth: _preferences.width),
+                                child: Padding(
+                                  padding: EdgeInsets.fromLTRB(compact ? 8 : 28,
+                                      24, compact ? 8 : 28, 32),
+                                  child: Container(
+                                    padding: EdgeInsets.fromLTRB(
+                                        compact ? 16 : 44,
+                                        28,
+                                        compact ? 16 : 44,
+                                        40),
+                                    decoration: BoxDecoration(
+                                      color: _preferences.background,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.08),
                                       ),
-                                      _ReaderChip(
-                                        icon: Icons.schedule_rounded,
-                                        label:
-                                            '${_chapterReadingMinutes(chapter)} MIN',
-                                        color: AppColors.gold,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 22),
-                                if (chapter.title.isNotEmpty) ...[
-                                  Center(
-                                    child: Text(
-                                      chapter.title,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontSize: 34,
-                                        fontWeight: FontWeight.w900,
-                                        height: 1.1,
-                                      ),
-                                    ),
-                                  ),
-                                  Center(
-                                    child: Container(
-                                      width: 52,
-                                      height: 3,
-                                      margin: const EdgeInsets.only(
-                                        top: 18,
-                                        bottom: 42,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary
-                                            .withValues(alpha: 0.55),
-                                        borderRadius: BorderRadius.circular(99),
-                                      ),
-                                    ),
-                                  ),
-                                ] else
-                                  const SizedBox(height: 16),
-                                if (chapter.content.isNotEmpty)
-                                  FormattedManuscriptText(
-                                    text: chapter.content,
-                                    fontSize: _fontSize,
-                                    lineHeight: 1.92,
-                                  )
-                                else
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 40,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        'Este capítulo no tiene contenido publicado aún.',
-                                        style: TextStyle(
-                                          color: Colors.white
-                                              .withValues(alpha: 0.34),
-                                          fontSize: 14,
-                                          fontStyle: FontStyle.italic,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.26),
+                                          blurRadius: 34,
+                                          offset: const Offset(0, 18),
                                         ),
-                                      ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Center(
+                                          child: Wrap(
+                                            alignment: WrapAlignment.center,
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            children: [
+                                              _ReaderChip(
+                                                icon:
+                                                    Icons.auto_stories_rounded,
+                                                label: isSingleChapter
+                                                    ? 'CAPÍTULO ÚNICO'
+                                                    : 'CAPÍTULO ${_currentChapter + 1}',
+                                                color: _preferences.palette ==
+                                                        ReaderPalette.sepia
+                                                    ? const Color(0xFF9B2335)
+                                                    : AppColors.primaryLight,
+                                              ),
+                                              _ReaderChip(
+                                                icon: Icons.schedule_rounded,
+                                                label:
+                                                    '${_chapterReadingMinutes(chapter)} MIN',
+                                                color: _preferences.palette ==
+                                                        ReaderPalette.sepia
+                                                    ? const Color(0xFF70501C)
+                                                    : AppColors.gold,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 22),
+                                        if (chapter.title.isNotEmpty) ...[
+                                          Center(
+                                            child: Text(
+                                              chapter.title,
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: _preferences.foreground,
+                                                fontSize: 34,
+                                                fontWeight: FontWeight.w900,
+                                                height: 1.1,
+                                              ),
+                                            ),
+                                          ),
+                                          Center(
+                                            child: Container(
+                                              width: 52,
+                                              height: 3,
+                                              margin: const EdgeInsets.only(
+                                                top: 18,
+                                                bottom: 42,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary
+                                                    .withValues(alpha: 0.55),
+                                                borderRadius:
+                                                    BorderRadius.circular(99),
+                                              ),
+                                            ),
+                                          ),
+                                        ] else
+                                          const SizedBox(height: 16),
+                                        if (chapter.content.isNotEmpty)
+                                          FormattedManuscriptText(
+                                            onLink: _openReference,
+                                            text: chapter.content,
+                                            fontSize: _fontSize,
+                                            lineHeight: _preferences.lineHeight,
+                                            color: _preferences.foreground,
+                                            fontFamily: _preferences.serif
+                                                ? 'CorvusLiterary'
+                                                : 'sans-serif',
+                                          )
+                                        else
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 40,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                'Este capítulo no tiene contenido publicado aún.',
+                                                style: TextStyle(
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.34),
+                                                  fontSize: 14,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        const SizedBox(height: 64),
+                                        if (!isSingleChapter)
+                                          _buildChapterNavigation(
+                                            hasPrev: hasPrev,
+                                            hasNext: hasNext,
+                                          ),
+                                        const SizedBox(height: 80),
+                                      ],
                                     ),
                                   ),
-                                const SizedBox(height: 64),
-                                if (!isSingleChapter)
-                                  _buildChapterNavigation(
-                                    hasPrev: hasPrev,
-                                    hasNext: hasNext,
-                                  ),
-                                const SizedBox(height: 80),
-                              ],
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
+            )));
+  }
+
+  Future<void> _showPreferences() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) {
+        void update(ReaderPreferences value) {
+          _setPreferences(value);
+          refresh(() {});
+        }
+
+        return SafeArea(
+            child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('Preferencias de lectura'),
+                  Wrap(spacing: 8, children: [
+                    for (final palette in ReaderPalette.values)
+                      ChoiceChip(
+                          label: Text(switch (palette) {
+                            ReaderPalette.dark => 'Oscuro',
+                            ReaderPalette.sepia => 'Sepia',
+                            ReaderPalette.contrast => 'Alto contraste'
+                          }),
+                          selected: _preferences.palette == palette,
+                          onSelected: (_) =>
+                              update(_preferences.copyWith(palette: palette))),
+                  ]),
+                  SwitchListTile(
+                      title: const Text('Fuente literaria'),
+                      value: _preferences.serif,
+                      onChanged: (value) =>
+                          update(_preferences.copyWith(serif: value))),
+                  Text('Tamaño: ${_fontSize.round()}'),
+                  Slider(
+                      value: _fontSize,
+                      min: 14,
+                      max: 30,
+                      divisions: 16,
+                      label: '${_fontSize.round()}',
+                      onChanged: (value) =>
+                          update(_preferences.copyWith(fontSize: value))),
+                  Text(
+                      'Interlineado: ${_preferences.lineHeight.toStringAsFixed(1)}'),
+                  Slider(
+                      value: _preferences.lineHeight,
+                      min: 1.3,
+                      max: 2.5,
+                      divisions: 12,
+                      label: _preferences.lineHeight.toStringAsFixed(1),
+                      onChanged: (value) =>
+                          update(_preferences.copyWith(lineHeight: value))),
+                  const Text('Ancho de página'),
+                  Slider(
+                      value: _preferences.width,
+                      min: 650,
+                      max: 1000,
+                      divisions: 7,
+                      label: '${_preferences.width.round()}',
+                      onChanged: (value) =>
+                          update(_preferences.copyWith(width: value))),
+                ])));
+      }),
     );
   }
 
-  Widget _buildGlobalTopBar(Work work) {
-    final width = MediaQuery.sizeOf(context).width;
-    final compact = width < 900;
-    final profile = context.watch<AuthProvider>().profile;
-
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.background.withValues(alpha: 0.92),
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(compact ? 10 : 18, 10, 18, 10),
-              child: SizedBox(
-                height: 48,
-                child: Row(
-                  children: [
-                    _TopBarBrand(compact: compact),
-                    if (!compact) ...[
-                      const SizedBox(width: 34),
-                      const Expanded(child: _TopBarNav()),
-                    ] else ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          work.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ],
-                    if (!compact) const SizedBox(width: 34),
-                    _TopBarIconButton(
-                      icon: Icons.search_rounded,
-                      tooltip: 'Buscar',
-                      onTap: () => context.go('/discover'),
-                    ),
-                    const SizedBox(width: 8),
-                    _TopBarIconButton(
-                      icon: Icons.menu_book_outlined,
-                      tooltip: 'Glosario',
-                      onTap: () => context.push('/glossary'),
-                    ),
-                    if (!compact) ...[
-                      const SizedBox(width: 8),
-                      _TopBarIconButton(
-                        icon: Icons.notifications_none_rounded,
-                        tooltip: 'Notificaciones',
-                        onTap: () => context.push('/notifications'),
-                      ),
-                      const SizedBox(width: 8),
-                      if (profile != null)
-                        GestureDetector(
-                          onTap: () => context.go('/profile'),
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(13),
-                              border: Border.all(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.24),
-                              ),
-                            ),
-                            child: Center(
-                              child: UserAvatar(
-                                imageUrl: profile.avatarUrl,
-                                displayName: profile.displayName,
-                                radius: 15,
-                              ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(width: 10),
-                      _TopBarPrimaryButton(
-                        label: 'Crear obra',
-                        onTap: () => showUploadWizard(context),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
+  Future<void> _showContents() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+          builder: (ctx, refresh) => SafeArea(
+                  child: SizedBox(
+                height: MediaQuery.sizeOf(ctx).height * .7,
+                child: ListView(children: [
+                  ListTile(
+                      title: const Text('Guardar marcador aquí'),
+                      leading: const Icon(Icons.bookmark_add_outlined),
+                      onTap: () {
+                        _bookmarks[_currentChapter] = _progress.value;
+                        unawaited(_storage
+                            ?.setString(
+                                '$_readerKey.${widget.workId}.bookmarks',
+                                jsonEncode(_bookmarks.map(
+                                    (key, value) => MapEntry('$key', value))))
+                            .catchError((Object _) => false));
+                        Navigator.pop(ctx);
+                      }),
+                  for (final entry in _bookmarks.entries.where((entry) =>
+                      entry.key >= 0 && entry.key < _chapters.length))
+                    ListTile(
+                        leading: const Icon(Icons.bookmark),
+                        trailing: IconButton(
+                            tooltip: 'Eliminar marcador',
+                            icon: const Icon(Icons.bookmark_remove_outlined),
+                            onPressed: () {
+                              refresh(() => _bookmarks.remove(entry.key));
+                              unawaited(_storage
+                                  ?.setString(
+                                      '$_readerKey.${widget.workId}.bookmarks',
+                                      jsonEncode(_bookmarks.map((key, value) =>
+                                          MapEntry('$key', value))))
+                                  .catchError((Object _) => false));
+                            }),
+                        title: Text(
+                            '${_chapterTitle(entry.key)} · ${(entry.value * 100).round()} %'),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _goToChapter(entry.key);
+                          _restorePosition(fraction: entry.value);
+                        }),
+                  const Divider(),
+                  for (var i = 0; i < _chapters.length; i++)
+                    ListTile(
+                        selected: i == _currentChapter,
+                        leading: Text('${i + 1}'),
+                        title: Text(_chapterTitle(i)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _goToChapter(i);
+                        }),
+                ]),
+              ))),
     );
   }
 
@@ -449,17 +671,18 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
             ),
           ],
           const SizedBox(width: 8),
-          _FontButton(
-            label: 'A-',
-            enabled: _fontSize > 13,
-            onTap: () => setState(() => _fontSize -= 1),
-          ),
-          const SizedBox(width: 6),
-          _FontButton(
-            label: 'A+',
-            enabled: _fontSize < 24,
-            onTap: () => setState(() => _fontSize += 1),
-          ),
+          IconButton(
+              tooltip: 'Índice y marcadores',
+              icon: const Icon(Icons.toc),
+              onPressed: _showContents),
+          IconButton(
+              tooltip: 'Preferencias de lectura',
+              icon: const Icon(Icons.text_fields),
+              onPressed: _showPreferences),
+          IconButton(
+              tooltip: 'Ocultar controles',
+              icon: const Icon(Icons.fullscreen),
+              onPressed: () => setState(() => _hideControls = true)),
         ],
       ),
     );
@@ -476,7 +699,10 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
           horizontal: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
         ),
       ),
-      child: Row(
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 16,
+        runSpacing: 16,
         children: [
           if (hasPrev)
             _NavButton(
@@ -484,19 +710,14 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
               icon: Icons.arrow_back_ios_rounded,
               leading: true,
               onTap: () => _goToChapter(_currentChapter - 1),
-            )
-          else
-            const SizedBox(width: 180),
-          const Spacer(),
+            ),
           if (hasNext)
             _NavButton(
               label: _chapterTitle(_currentChapter + 1),
               icon: Icons.arrow_forward_ios_rounded,
               leading: false,
               onTap: () => _goToChapter(_currentChapter + 1),
-            )
-          else
-            const SizedBox(width: 180),
+            ),
         ],
       ),
     );
@@ -511,229 +732,6 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
   int _chapterReadingMinutes(WorkChapter chapter) {
     if (chapter.wordCount == 0) return 0;
     return (chapter.wordCount / 220).ceil();
-  }
-}
-
-class _TopBarBrand extends StatelessWidget {
-  final bool compact;
-
-  const _TopBarBrand({required this.compact});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.go('/discover'),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(13),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.26),
-                ),
-              ),
-              child: const Icon(
-                Icons.auto_awesome_rounded,
-                color: AppColors.primary,
-                size: 18,
-              ),
-            ),
-            if (!compact) ...[
-              const SizedBox(width: 11),
-              const Text(
-                'Corvus Aeternum',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopBarNav extends StatelessWidget {
-  const _TopBarNav();
-
-  static const _items = [
-    ('Explorar', '/feed'),
-    ('Descubrir', '/discover'),
-    ('Atelier', '/atelier'),
-    ('Subastas', '/auctions'),
-    ('Artistas', '/artists'),
-    ('Colecciones', '/collections'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Wrap(
-        spacing: 8,
-        children: _items.map((item) {
-          return _TopBarNavLink(
-            label: item.$1,
-            onTap: () => context.go(item.$2),
-          );
-        }).toList(growable: false),
-      ),
-    );
-  }
-}
-
-class _TopBarNavLink extends StatefulWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _TopBarNavLink({
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  State<_TopBarNavLink> createState() => _TopBarNavLinkState();
-}
-
-class _TopBarNavLinkState extends State<_TopBarNavLink> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? Colors.white.withValues(alpha: 0.045)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(99),
-          ),
-          child: Text(
-            widget.label,
-            style: TextStyle(
-              color: _hovered ? AppColors.textPrimary : AppColors.textMuted,
-              fontSize: 13,
-              fontWeight: _hovered ? FontWeight.w800 : FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopBarIconButton extends StatefulWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _TopBarIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  State<_TopBarIconButton> createState() => _TopBarIconButtonState();
-}
-
-class _TopBarIconButtonState extends State<_TopBarIconButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: _hovered ? 0.075 : 0.04),
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(
-                color: _hovered
-                    ? AppColors.primary.withValues(alpha: 0.24)
-                    : Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            child: Icon(widget.icon, size: 19, color: AppColors.textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TopBarPrimaryButton extends StatefulWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _TopBarPrimaryButton({required this.label, required this.onTap});
-
-  @override
-  State<_TopBarPrimaryButton> createState() => _TopBarPrimaryButtonState();
-}
-
-class _TopBarPrimaryButtonState extends State<_TopBarPrimaryButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-          decoration: BoxDecoration(
-            color: _hovered ? AppColors.primaryLight : AppColors.primary,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color:
-                    AppColors.primary.withValues(alpha: _hovered ? 0.28 : 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Text(
-            widget.label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
@@ -922,48 +920,6 @@ class _ReaderStat extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FontButton extends StatelessWidget {
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _FontButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: Container(
-          width: 40,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: enabled ? 0.045 : 0.02),
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color:
-                    enabled ? AppColors.textSecondary : AppColors.textDisabled,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/atelier_models.dart';
 import '../services/atelier_service.dart';
+import '../features/atelier/atelier_publication_review.dart';
 
 class AtelierProvider extends ChangeNotifier {
   final AtelierService _service;
@@ -11,6 +12,8 @@ class AtelierProvider extends ChangeNotifier {
 
   bool _loading = false;
   bool _schemaMissing = false;
+  int _loadGeneration = 0;
+  bool _publicationBusy = false;
   String? _error;
   AtelierWorkspace _workspace = const AtelierWorkspace.empty();
 
@@ -19,9 +22,19 @@ class AtelierProvider extends ChangeNotifier {
   String? get error => _error;
   AtelierWorkspace get workspace => _workspace;
 
-  List<AtelierProject> get projects => _workspace.projects;
+  List<AtelierProject> get projects => _workspace.projects
+      .where((project) => project.metadata['deleted_at'] == null)
+      .toList();
+  List<AtelierProject> get trashedProjects => _workspace.projects
+      .where((project) => project.metadata['deleted_at'] != null)
+      .toList();
   AtelierProject? get activeProject => _workspace.activeProject;
-  List<AtelierNode> get nodes => _workspace.nodes;
+  List<AtelierNode> get nodes => _workspace.nodes
+      .where((node) => node.metadata['deleted_at'] == null)
+      .toList();
+  List<AtelierNode> get trashedNodes => _workspace.nodes
+      .where((node) => node.metadata['deleted_at'] != null)
+      .toList();
   List<AtelierRelation> get relations => _workspace.relations;
   List<AtelierVersion> get versions => _workspace.versions;
 
@@ -72,27 +85,8 @@ class AtelierProvider extends ChangeNotifier {
       nodes.where((node) => studioKinds.contains(node.kind)).toList()
         ..sort((a, b) => a.position.compareTo(b.position));
 
-  List<AtelierNode> get worldNodes => nodes
-      .where((node) => const {
-            'universe',
-            'world',
-            'character',
-            'place',
-            'faction',
-            'family',
-            'organization',
-            'religion',
-            'culture',
-            'language',
-            'system',
-            'technology',
-            'magic',
-            'creature',
-            'object',
-            'event',
-            'map',
-          }.contains(node.kind))
-      .toList();
+  List<AtelierNode> get worldNodes =>
+      nodes.where((node) => atelierWorldKinds.contains(node.kind)).toList();
 
   int get wordCount {
     return nodes
@@ -146,7 +140,7 @@ class AtelierProvider extends ChangeNotifier {
         category: 'Taller',
         title: 'Elementos sin contenido',
         detail:
-            '$emptyStudioItems elementos del taller no tienen contenido. Se omitirán al publicar.',
+            '$emptyStudioItems elementos del taller no tienen contenido. Complétalos o muévelos a la papelera antes de publicar.',
         severity: 'media',
       ));
     }
@@ -258,27 +252,41 @@ class AtelierProvider extends ChangeNotifier {
   }
 
   Future<void> load(String profileId, {String? projectId}) async {
+    final generation = ++_loadGeneration;
     _loading = true;
     _schemaMissing = false;
     _error = null;
     notifyListeners();
     try {
-      _workspace =
+      final workspace =
           await _service.loadWorkspace(profileId, projectId: projectId);
+      if (generation != _loadGeneration) return;
+      _workspace = workspace;
     } on AtelierSchemaException catch (error) {
+      if (generation != _loadGeneration) return;
       _workspace = const AtelierWorkspace.empty();
       _schemaMissing = true;
       _error = error.message;
     } catch (error) {
+      if (generation != _loadGeneration) return;
       _error = error.toString();
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (generation == _loadGeneration) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> selectProject(String profileId, String projectId) async {
     await load(profileId, projectId: projectId);
+  }
+
+  Future<String> importProject(
+      String profileId, Map<String, dynamic> payload, String requestId) async {
+    final projectId = await _service.importProject(payload, requestId);
+    await load(profileId, projectId: projectId);
+    return projectId;
   }
 
   Future<void> createProject({
@@ -331,11 +339,22 @@ class AtelierProvider extends ChangeNotifier {
   Future<void> deleteActiveProject(String profileId) async {
     final project = activeProject;
     if (project == null) return;
-    await _service.deleteProject(project);
+    await _service.updateProject(project.copyWith(metadata: {
+      ...project.metadata,
+      'deleted_at': DateTime.now().toUtc().toIso8601String()
+    }));
     await load(profileId);
   }
 
+  Future<void> restoreProject(AtelierProject project) async {
+    await _service.updateProject(project.copyWith(
+        metadata: Map<String, dynamic>.of(project.metadata)
+          ..remove('deleted_at')));
+    await load(project.profileId, projectId: project.id);
+  }
+
   Future<AtelierNode?> createNode({
+    String? nodeId,
     required String profileId,
     required String projectId,
     required String kind,
@@ -348,6 +367,7 @@ class AtelierProvider extends ChangeNotifier {
     Map<String, dynamic> metadata = const {},
   }) async {
     final node = await _service.createNode(
+      nodeId: nodeId,
       profileId: profileId,
       projectId: projectId,
       kind: kind,
@@ -367,12 +387,39 @@ class AtelierProvider extends ChangeNotifier {
   Future<({bool publicationLinked, bool publicationSynced})> updateNode(
     AtelierNode node,
   ) async {
+    final previous =
+        _workspace.nodes.where((current) => current.id == node.id).firstOrNull;
+    if (previous != null &&
+        atelierWorldKinds.contains(node.kind) &&
+        previous.title.trim() != node.title.trim()) {
+      final aliases = node.metadata['aliases'];
+      node = node.copyWith(metadata: {
+        ...node.metadata,
+        'aliases': {
+          if (aliases is List) ...aliases.whereType<String>(),
+          if (aliases is String)
+            ...aliases
+                .split(RegExp(r'[,;\n]'))
+                .where((alias) => alias.trim().isNotEmpty),
+          if (previous.title.trim().isNotEmpty) previous.title.trim(),
+        }.toList()
+      });
+    }
+    if (previous != null &&
+        previous.body != node.body &&
+        identical(previous.metadata['rich_text_delta'],
+            node.metadata['rich_text_delta'])) {
+      // Los editores de texto antiguo no deben conservar un Delta obsoleto.
+      node = node.copyWith(
+          metadata: Map<String, dynamic>.of(node.metadata)
+            ..remove('rich_text_delta'));
+    }
     final updated = await _service.updateNode(node);
-    final updatedNodes = nodes
+    final updatedNodes = _workspace.nodes
         .map((current) => current.id == updated.id ? updated : current)
         .toList();
     _workspace = AtelierWorkspace(
-      projects: projects,
+      projects: _workspace.projects,
       activeProject: activeProject,
       nodes: updatedNodes,
       relations: relations,
@@ -383,28 +430,21 @@ class AtelierProvider extends ChangeNotifier {
     final workId =
         (activeProject?.metadata['publication_work_id'] as String?)?.trim();
     final publicationLinked = workId?.isNotEmpty == true;
-    if (!publicationLinked) {
-      return (publicationLinked: false, publicationSynced: false);
-    }
-    try {
-      final result = await _service.syncPublishedWork(
-        project: activeProject!,
-        nodes: updatedNodes,
-        relations: relations,
-        versions: versions,
-      );
-      return (
-        publicationLinked: true,
-        publicationSynced: result != null,
-      );
-    } catch (_) {
-      return (publicationLinked: true, publicationSynced: false);
-    }
+    // Guardar o cambiar el estado editorial nunca modifica la versión pública.
+    return (publicationLinked: publicationLinked, publicationSynced: false);
   }
 
   Future<void> deleteNode(String profileId, AtelierNode node) async {
-    await _service.deleteNode(node);
-    await load(profileId, projectId: node.projectId);
+    await updateNode(node.copyWith(metadata: {
+      ...node.metadata,
+      'deleted_at': DateTime.now().toUtc().toIso8601String(),
+    }));
+  }
+
+  Future<void> restoreNode(AtelierNode node) async {
+    final metadata = Map<String, dynamic>.of(node.metadata)
+      ..remove('deleted_at');
+    await updateNode(node.copyWith(metadata: metadata));
   }
 
   Future<void> createRelation({
@@ -448,39 +488,119 @@ class AtelierProvider extends ChangeNotifier {
         'nodes_count': nodes.length,
         'studio_nodes_count': studioNodes.length,
         'relations_count': relations.length,
+        'snapshot_nodes':
+            _workspace.nodes.map((node) => node.toExportMap()).toList(),
+        'snapshot_relations':
+            relations.map((relation) => relation.toExportMap()).toList(),
       },
     );
     await load(profileId, projectId: projectId);
   }
 
   Future<String?> preparePublication() async {
+    if (_publicationBusy) {
+      throw StateError('Ya se está preparando la publicación.');
+    }
     final project = activeProject;
     if (project == null) return null;
-    final workId = await _service.preparePublication(
-      project: project,
-      nodes: nodes,
-      relations: relations,
-      versions: versions,
-    );
-    await load(project.profileId, projectId: project.id);
-    return workId;
+    _validatePublication();
+    _publicationBusy = true;
+    try {
+      final workId = await _service.preparePublication(
+        project: project,
+        nodes: nodes,
+        relations: relations,
+        versions: versions,
+      );
+      return workId;
+    } finally {
+      await load(project.profileId, projectId: project.id);
+      _publicationBusy = false;
+    }
   }
 
   /// Publicación por entregas: vuelca los capítulos actuales del taller en la
   /// obra ya vinculada sin alterar su sello. Null si no hay obra vinculada.
   Future<({String workId, int chapters, bool isPublished})?>
       syncPublication() async {
+    if (_publicationBusy) {
+      throw StateError('Ya se está actualizando la publicación.');
+    }
     final project = activeProject;
     if (project == null) return null;
-    return _service.syncPublishedWork(
-      project: project,
-      nodes: nodes,
-      relations: relations,
-      versions: versions,
-    );
+    _validatePublication();
+    _publicationBusy = true;
+    try {
+      final result = await _service.syncPublishedWork(
+        project: project,
+        nodes: nodes,
+        relations: relations,
+        versions: versions,
+      );
+      return result;
+    } finally {
+      await load(project.profileId, projectId: project.id);
+      _publicationBusy = false;
+    }
   }
 
   String exportJson() => _service.exportJson(_workspace);
+
+  List<PublicationIssue> get publicationIssues {
+    final snapshot = activeProject?.metadata['publication_snapshot'];
+    return reviewAtelierPublication(studioNodes,
+        references: worldNodes,
+        previousBodies: {
+          if (snapshot is List)
+            for (final row in snapshot.whereType<Map>())
+              if (row['id'] is String && row['body'] is String)
+                row['id'] as String: row['body'] as String,
+        });
+  }
+
+  bool get publicationIsCurrent {
+    final snapshot = activeProject?.metadata['publication_snapshot'];
+    if (snapshot is! List) return false;
+    final current =
+        studioNodes.where((node) => node.body.trim().isNotEmpty).toList();
+    if (snapshot.length != current.length) return false;
+    for (var i = 0; i < current.length; i++) {
+      final previous = snapshot[i];
+      if (previous is! Map ||
+          previous['id'] != current[i].id ||
+          previous['title'] != current[i].title ||
+          previous['body'] != current[i].body) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _validatePublication() {
+    final blocking = publicationIssues
+        .where((issue) => issue.severity == PublicationSeverity.blocking);
+    if (blocking.isNotEmpty) throw StateError(blocking.first.message);
+  }
+
+  Future<void> restoreNodeVersion(
+      AtelierNode current, AtelierVersion version) async {
+    if (version.projectId != current.projectId) {
+      throw StateError('La versión pertenece a otro proyecto.');
+    }
+    final snapshots = version.metadata['snapshot_nodes'];
+    if (snapshots is! List) {
+      throw StateError('Esta versión antigua solo contiene estadísticas.');
+    }
+    final snapshot = snapshots
+        .whereType<Map>()
+        .where((row) => row['id'] == current.id)
+        .firstOrNull;
+    if (snapshot == null) {
+      throw StateError('El elemento no existe en esta versión.');
+    }
+    await _service.restoreVersion(version);
+    await load(current.profileId, projectId: current.projectId);
+  }
 
   AtelierNode? nodeById(String? id) {
     if (id == null) return null;
@@ -508,6 +628,7 @@ class AtelierProvider extends ChangeNotifier {
     return nodes.where((candidate) {
       if (candidate.id == node.id) return false;
       if (relationIds.contains(candidate.id)) return true;
+      if (candidate.body.contains('](corvus-node:${node.id})')) return true;
       return candidate.wikilinks
           .map((title) => title.toLowerCase())
           .contains(linkTitle);
@@ -532,11 +653,11 @@ class AtelierProvider extends ChangeNotifier {
 
   void _replaceActiveProject(AtelierProject updated) {
     _workspace = AtelierWorkspace(
-      projects: projects
+      projects: _workspace.projects
           .map((project) => project.id == updated.id ? updated : project)
           .toList(),
       activeProject: updated,
-      nodes: nodes,
+      nodes: _workspace.nodes,
       relations: relations,
       versions: versions,
     );

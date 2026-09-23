@@ -33,6 +33,18 @@ void main() {
     final markdown = atelierQuillToMarkdown(controller);
     expect(markdown, contains('\n⁂\n'));
     expect(markdown, isNot(contains('- - -')));
+    final reopened = createAtelierQuillController(body: markdown, metadata: {});
+    addTearDown(reopened.dispose);
+    expect(
+        atelierQuillDeltaJson(reopened)
+            .where((operation) => operation['insert'] is Map)
+            .single['insert'],
+        contains('divider'));
+    final stored = createAtelierQuillController(body: '', metadata: {
+      atelierRichTextDeltaKey: atelierQuillDeltaJson(reopened),
+    });
+    addTearDown(stored.dispose);
+    expect(atelierQuillToMarkdown(stored), markdown);
   });
 
   test('combines inline formats on the same selected segment', () {

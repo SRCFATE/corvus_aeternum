@@ -3,12 +3,33 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/browser_exit_guard.dart';
 import '../../core/router/navigation_coordinator.dart';
 import '../../models/atelier_models.dart';
+import '../../models/atelier_comment.dart';
 import '../../providers/atelier_provider.dart';
+import '../../services/atelier_service.dart';
+import '../../services/atelier_comment_service.dart';
 import '../../shared/widgets/corvus_tag_input.dart';
+import '../../shared/widgets/corvus_save_status.dart';
+import '../../shared/widgets/formatted_manuscript_text.dart';
+import 'atelier_draft_store.dart';
+import 'atelier_document_outline.dart';
+import 'atelier_reference_repair.dart';
+import 'atelier_reference_repair_sheet.dart';
+import 'atelier_manuscript_navigator.dart';
+import 'atelier_history_sheet.dart';
+import 'atelier_publication_dialog.dart';
+import 'atelier_comments_sheet.dart';
+import 'atelier_text_diff.dart';
+import 'atelier_writing_progress.dart';
 import 'atelier_quill_document.dart';
 
 const _statusLabels = <String, String>{
@@ -51,7 +72,8 @@ class AtelierElementEditor extends StatefulWidget {
   State<AtelierElementEditor> createState() => _AtelierElementEditorState();
 }
 
-class _AtelierElementEditorState extends State<AtelierElementEditor> {
+class _AtelierElementEditorState extends State<AtelierElementEditor>
+    with WidgetsBindingObserver {
   late final TextEditingController _titleController =
       TextEditingController(text: widget.node?.title ?? '');
   late final quill.QuillController _bodyController =
@@ -62,9 +84,17 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   final FocusNode _bodyFocusNode = FocusNode();
   final ScrollController _pageScrollController = ScrollController();
   final ScrollController _editorScrollController = ScrollController();
-  late final StreamSubscription<quill.DocChange> _bodyChangesSubscription;
+  late StreamSubscription<quill.DocChange> _bodyChangesSubscription;
+  final _quillKey = GlobalKey<quill.EditorState>();
+  final _manuscriptKey = GlobalKey();
+  final _focusBand = ValueNotifier<Rect?>(null);
+  final _searchRects = ValueNotifier<List<Rect>>([]);
+  String _searchQuery = '';
+  int _searchOffset = 0;
 
   AtelierNode? _node;
+  String _creationId = const Uuid().v4();
+  Map<String, dynamic>? _creationSnapshot;
   late String _kind = widget.node?.kind ?? widget.initialKind;
   late String _status = widget.node?.status ?? 'draft';
   late String _canonStatus = widget.node?.canonStatus ?? 'canon';
@@ -74,14 +104,49 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   bool _isDirty = false;
   bool _isSaving = false;
   bool _focusMode = false;
-  bool _lastPublicationLinked = false;
-  bool _lastPublicationSynced = false;
+  String _focusUnit = 'paragraph';
+  bool _serif = true;
   DateTime? _lastSaved;
+  final _draftStore = AtelierDraftStore();
+  late String _draftKey = _draftStore.key(
+    widget.profileId,
+    widget.projectId,
+    widget.node?.id ?? 'new-${widget.initialKind}-$_creationId',
+  );
+  late final BrowserExitGuard _browserExitGuard;
+  Timer? _autosave;
+  Timer? _retry;
+  int _revision = 0;
+  bool _recovering = true;
+  bool _restoring = false;
+  bool _saveFailed = false;
+  bool _conflict = false;
+  bool _localFailed = false;
+  bool _publishing = false;
+  bool _canEdit = true;
+  bool _exitDialogOpen = false;
+  bool _commandOpen = false;
+  double _fontSize = 18;
+  double _lineHeight = 1.8;
+  double _panelWidth = 360;
+  bool _panelPinned = false;
+  bool _panelOpen = false;
+  int _panelTab = 0;
+  Future<bool>? _pendingSave;
+
+  bool get _publicationLinked =>
+      (context
+              .read<AtelierProvider>()
+              .activeProject
+              ?.metadata['publication_work_id'] as String?)
+          ?.isNotEmpty ==
+      true;
 
   String get _kindLabel => widget.kindLabels[_kind] ?? _kind;
 
   int get _wordCount {
-    final text = _bodyController.document.toPlainText().trim();
+    final text =
+        _bodyController.document.toPlainText().replaceAll('\uFFFC', '').trim();
     if (text.isEmpty) return 0;
     return RegExp(r'\S+').allMatches(text).length;
   }
@@ -109,33 +174,273 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     }
   }
 
-  String get _saveStateLabel {
-    if (_isSaving) return 'guardando...';
-    if (_isDirty) return 'sin guardar';
-    if (_lastSaved != null) return 'guardado';
-    return _statusLabels[_status] ?? _status;
-  }
-
   @override
   void initState() {
     super.initState();
     _node = widget.node;
+    if (widget.node != null && widget.node!.profileId != widget.profileId) {
+      _canEdit = false;
+      _bodyController.readOnly = true;
+      unawaited(_loadCapabilities());
+    }
+    _lastSaved = widget.node?.updatedAt;
+    _browserExitGuard = BrowserExitGuard(() => _isDirty || _isSaving);
+    WidgetsBinding.instance.addObserver(this);
     _titleController.addListener(_markDirty);
     _bodyController.addListener(_handleSelectionChanged);
-    _bodyChangesSubscription = _bodyController.changes.listen((_) {
-      _markDirty();
-      _scheduleCaretCentering();
-    });
+    _listenToDocument();
+    unawaited(_loadAppearance());
     AppNavigationCoordinator.instance.registerExitGuard(
       this,
       _confirmNavigationExit,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recoverDraft());
+  }
+
+  Future<void> _loadCapabilities() async {
+    try {
+      final capabilities =
+          await AtelierCommentService().capabilities(widget.projectId);
+      if (!mounted) return;
+      setState(() {
+        _canEdit = capabilities.contains('project.write');
+        _bodyController.readOnly = !_canEdit;
+      });
+    } catch (_) {/* Un permiso sin verificar permanece en solo lectura. */}
+  }
+
+  void _listenToDocument() {
+    _bodyChangesSubscription = _bodyController.changes.listen((_) {
+      _markDirty();
+      _scheduleCaretCentering();
+      if (!_restoring && !_commandOpen) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _checkTypedCommand());
+      }
+    });
+  }
+
+  Future<void> _loadAppearance() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _fontSize = (prefs.getDouble('atelier.font.${widget.profileId}') ?? 18)
+            .clamp(14, 28);
+        _lineHeight =
+            (prefs.getDouble('atelier.leading.${widget.profileId}') ?? 1.8)
+                .clamp(1.3, 2.4);
+        _focusMode =
+            prefs.getBool('atelier.focus.${widget.profileId}') ?? false;
+        _focusUnit = prefs.getString('atelier.focusUnit.${widget.profileId}') ??
+            'paragraph';
+        _serif = prefs.getBool('atelier.serif.${widget.profileId}') ?? true;
+        _panelWidth =
+            (prefs.getDouble('atelier.panel.${widget.profileId}') ?? 360)
+                .clamp(300, 560);
+        _panelPinned =
+            prefs.getBool('atelier.panelPinned.${widget.profileId}') ?? false;
+        _panelOpen =
+            prefs.getBool('atelier.panelOpen.${widget.profileId}') ?? false;
+        _panelTab = (prefs.getInt('atelier.panelTab.${widget.profileId}') ?? 0)
+            .clamp(0, 1);
+      });
+    } catch (_) {/* La apariencia no debe impedir abrir el manuscrito. */}
+  }
+
+  Future<void> _rememberAppearance() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('atelier.font.${widget.profileId}', _fontSize);
+      await prefs.setDouble('atelier.leading.${widget.profileId}', _lineHeight);
+      await prefs.setBool('atelier.focus.${widget.profileId}', _focusMode);
+      await prefs.setString(
+          'atelier.focusUnit.${widget.profileId}', _focusUnit);
+      await prefs.setBool('atelier.serif.${widget.profileId}', _serif);
+      await prefs.setDouble('atelier.panel.${widget.profileId}', _panelWidth);
+      await prefs.setBool(
+          'atelier.panelPinned.${widget.profileId}', _panelPinned);
+      await prefs.setBool('atelier.panelOpen.${widget.profileId}', _panelOpen);
+      await prefs.setInt('atelier.panelTab.${widget.profileId}', _panelTab);
+    } catch (_) {/* Se mantiene la preferencia durante esta sesión. */}
   }
 
   void _markDirty() {
-    if (!_isDirty && mounted) setState(() => _isDirty = true);
-    // El contador de palabras se refresca con el mismo setState del listener.
-    if (mounted) setState(() {});
+    if (!mounted || _restoring) return;
+    _revision++;
+    setState(() => _isDirty = true);
+    unawaited(_persistDraft());
+    _scheduleSave();
+  }
+
+  void _scheduleSave() {
+    _autosave?.cancel();
+    if (_conflict) return;
+    _autosave = Timer(const Duration(seconds: 2), () {
+      if (mounted && !_exitDialogOpen && !_recovering) _save(silent: true);
+    });
+  }
+
+  Map<String, dynamic> _draftSnapshot() => {
+        'title': _titleController.text,
+        'body': atelierQuillToMarkdown(_bodyController),
+        'metadata': _buildMetadata(),
+        'kind': _kind,
+        'status': _status,
+        'canon_status': _canonStatus,
+        'tags': List<String>.of(_tags),
+        'node_id': _node?.id,
+        'creation_id': _creationId,
+        'creation_snapshot': _creationSnapshot,
+        'saved_at': DateTime.now().toUtc().toIso8601String(),
+        'base_updated_at': _node?.updatedAt.toUtc().toIso8601String(),
+      };
+
+  Future<void> _persistDraft() async {
+    try {
+      await _draftStore.write(_draftKey, _draftSnapshot());
+      if (mounted && _localFailed) setState(() => _localFailed = false);
+    } catch (_) {
+      if (mounted) setState(() => _localFailed = true);
+    }
+  }
+
+  Future<void> _recoverDraft() async {
+    try {
+      var draft = await _draftStore.read(_draftKey);
+      var selectedNewBackup = false;
+      if (widget.node == null) {
+        final pending = await _draftStore.pendingNew(
+            widget.profileId, widget.projectId, widget.initialKind);
+        if (!mounted) return;
+        if (pending.isNotEmpty) {
+          final selected = await showDialog<String>(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+                    title: const Text('Borradores pendientes'),
+                    content: SizedBox(
+                        width: 440,
+                        child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 360),
+                            child: ListView(shrinkWrap: true, children: [
+                              const Padding(
+                                  padding: EdgeInsets.only(bottom: 12),
+                                  child: Text(
+                                      'Recupera un borrador o empieza otro. Los respaldos se conservan hasta que confirmes su guardado.')),
+                              for (final backup in pending)
+                                ListTile(
+                                    leading:
+                                        const Icon(Icons.restore_page_outlined),
+                                    title: Text(
+                                        (backup.draft['title'] as String?)
+                                                    ?.trim()
+                                                    .isNotEmpty ==
+                                                true
+                                            ? backup.draft['title'] as String
+                                            : 'Elemento sin título'),
+                                    subtitle: Text(DateTime.tryParse(
+                                                backup.draft['saved_at']
+                                                        as String? ??
+                                                    '')
+                                            ?.toLocal()
+                                            .toString()
+                                            .split('.')
+                                            .first ??
+                                        'Respaldo local'),
+                                    onTap: () =>
+                                        Navigator.pop(ctx, backup.key)),
+                            ]))),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Empezar otro elemento'))
+                    ],
+                  ));
+          if (!mounted) return;
+          if (selected != null) {
+            _draftKey = selected;
+            draft =
+                pending.firstWhere((backup) => backup.key == selected).draft;
+            selectedNewBackup = true;
+          }
+        }
+      }
+      if (!mounted) return;
+      if (draft != null) {
+        final restore = selectedNewBackup
+            ? true
+            : await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Recuperar borrador'),
+                  content: const Text(
+                      'Hay cambios conservados en este dispositivo. Puedes recuperarlos antes de seguir escribiendo. La versión guardada en el proyecto se conserva hasta que guardes.'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Usar versión del proyecto')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Recuperar cambios')),
+                  ],
+                ),
+              );
+        if (!mounted) return;
+        if (restore == true) {
+          _restoring = true;
+          final metadata = Map<String, dynamic>.from(draft['metadata'] as Map);
+          final recovered = createAtelierQuillController(
+              body: draft['body'] as String, metadata: metadata);
+          unawaited(_bodyChangesSubscription.cancel());
+          _bodyController.document = recovered.document;
+          _listenToDocument();
+          _titleController.text = draft['title'] as String;
+          _kind = draft['kind'] as String;
+          _status = draft['status'] as String;
+          _canonStatus = draft['canon_status'] as String;
+          _tags = List<String>.from(draft['tags'] as List);
+          _internalDate = metadata['date'] as String? ?? '';
+          _purpose = metadata['purpose'] as String? ?? '';
+          // Si un alta había llegado al servidor antes del cierre, reutilizarla.
+          final recoveredId = draft['node_id'] as String?;
+          _node ??= context.read<AtelierProvider>().nodeById(recoveredId);
+          _creationId = draft['creation_id'] as String? ?? _creationId;
+          _creationSnapshot = draft['creation_snapshot'] is Map
+              ? Map<String, dynamic>.from(draft['creation_snapshot'] as Map)
+              : null;
+          final base =
+              DateTime.tryParse(draft['base_updated_at'] as String? ?? '');
+          _conflict = base != null &&
+              _node != null &&
+              !base.isAtSameMomentAs(_node!.updatedAt);
+          _restoring = false;
+          _revision++;
+          _isDirty = true;
+          // Requiere guardar conscientemente: otra sesión pudo avanzar.
+        } else if (restore == false) {
+          await _draftStore.remove(_draftKey);
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        _localFailed = true;
+        _showMessage(
+            'No se pudo abrir el respaldo local. Se conserva para intentar recuperarlo de nuevo.');
+      }
+    } finally {
+      _restoring = false;
+      if (mounted) setState(() => _recovering = false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isDirty) unawaited(_persistDraft());
+    if (state == AppLifecycleState.resumed && _isDirty && !_recovering) {
+      unawaited(_save(silent: true));
+    }
   }
 
   void _handleSelectionChanged() {
@@ -145,17 +450,66 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
 
   void _scheduleCaretCentering() {
     if (_focusMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _centerCaret();
+        _updateFocusBand();
+      });
     }
   }
 
+  void _updateFocusBand() {
+    if (!mounted || !_focusMode || !_bodyController.selection.isValid) return;
+    final render = _quillKey.currentState?.renderEditor;
+    final surface = _manuscriptKey.currentContext?.findRenderObject();
+    if (render == null || surface is! RenderBox) return;
+    final text = _bodyController.document.toPlainText();
+    final caret =
+        _bodyController.selection.extentOffset.clamp(0, text.length - 1);
+    var start = caret;
+    var end = caret;
+    if (_focusUnit != 'line') {
+      final separator =
+          _focusUnit == 'sentence' ? RegExp(r'[.!?\n]') : RegExp(r'\n');
+      while (start > 0 && !separator.hasMatch(text[start - 1])) {
+        start--;
+      }
+      while (end < text.length - 1 && !separator.hasMatch(text[end])) {
+        end++;
+      }
+    }
+    final first = render.getLocalRectForCaret(TextPosition(offset: start));
+    final last = render.getLocalRectForCaret(TextPosition(offset: end));
+    final top = surface.globalToLocal(render.localToGlobal(first.topLeft)).dy;
+    final bottom =
+        surface.globalToLocal(render.localToGlobal(last.bottomRight)).dy;
+    _focusBand.value =
+        Rect.fromLTRB(0, top - 8, surface.size.width, bottom + 8);
+  }
+
   void _centerCaret() {
-    if (!_pageScrollController.hasClients) return;
+    if (!mounted ||
+        !_pageScrollController.hasClients ||
+        !_bodyFocusNode.hasFocus) {
+      return;
+    }
+    final render = _quillKey.currentState?.renderEditor;
+    if (render == null || !render.attached) return;
     final selection = _bodyController.selection;
-    final caret = selection.isValid ? selection.extentOffset : 0;
-    final target = 390 +
-        (caret / 68 * 33) -
-        (_pageScrollController.position.viewportDimension / 2);
+    if (!selection.isValid) return;
+    final rect = render
+        .getLocalRectForCaret(TextPosition(offset: selection.extentOffset));
+    final caretY = render.localToGlobal(rect.center).dy;
+    final viewport = MediaQuery.sizeOf(context).height -
+        MediaQuery.viewInsetsOf(context).bottom;
+    final delta = caretY - viewport * .55;
+    if (delta.abs() < 60) return;
+    final target = _pageScrollController.offset + delta;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _pageScrollController.jumpTo(target
+          .clamp(0, _pageScrollController.position.maxScrollExtent)
+          .toDouble());
+      return;
+    }
     _pageScrollController.animateTo(
       target
           .clamp(0, _pageScrollController.position.maxScrollExtent)
@@ -167,6 +521,12 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
 
   @override
   void dispose() {
+    _autosave?.cancel();
+    _retry?.cancel();
+    _browserExitGuard.dispose();
+    _focusBand.dispose();
+    _searchRects.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     AppNavigationCoordinator.instance.unregisterExitGuard(this);
     _bodyChangesSubscription.cancel();
     _titleController.dispose();
@@ -179,7 +539,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
 
   // ─── Persistencia ────────────────────────────────────────────────────────────
 
-  Map<String, dynamic> _buildMetadata() => {
+  Map<String, dynamic> _buildMetadata() => recordWritingProgress(
+      {
         if (_node != null) ..._node!.metadata,
         if (_internalDate.trim().isNotEmpty)
           'date': _internalDate.trim()
@@ -191,100 +552,186 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           'purpose': null,
         'text_alignment': atelierPrimaryAlignment(_bodyController),
         atelierRichTextDeltaKey: atelierQuillDeltaJson(_bodyController),
-      }..removeWhere((_, value) => value == null);
+      }..removeWhere((_, value) => value == null),
+      before: _node?.wordCount ?? 0,
+      after: _wordCount,
+      now: DateTime.now());
 
   Future<bool> _save({String? statusOverride, bool silent = false}) async {
-    if (_isSaving) return false;
-    setState(() => _isSaving = true);
+    if (!_canEdit || _conflict) return false;
+    _autosave?.cancel();
+    _retry?.cancel();
+    if (_pendingSave != null) {
+      final ok = await _pendingSave!;
+      if (!ok || !mounted) return false;
+      if (!_isDirty && statusOverride == null) return true;
+      return _save(statusOverride: statusOverride, silent: silent);
+    }
+    if (!mounted || _recovering) return false;
+    final operation =
+        _saveSnapshot(statusOverride: statusOverride, silent: silent);
+    _pendingSave = operation;
+    try {
+      return await operation;
+    } finally {
+      if (identical(_pendingSave, operation)) _pendingSave = null;
+    }
+  }
 
+  Future<bool> _saveSnapshot(
+      {String? statusOverride, bool silent = false}) async {
+    if (statusOverride != null) {
+      _status = statusOverride;
+      _revision++;
+      _isDirty = true;
+    }
+    setState(() => _isSaving = true);
+    final revision = _revision;
+    final snapshot = _draftSnapshot();
     final title = _titleController.text.trim().isEmpty
         ? 'Sin título'
         : _titleController.text.trim();
     final status = statusOverride ?? _status;
     final provider = context.read<AtelierProvider>();
-    var publicationLinked = false;
-    var publicationSynced = false;
 
     try {
       if (_node == null) {
+        _creationSnapshot ??= {
+          'kind': snapshot['kind'],
+          'title': title,
+          'body': snapshot['body'],
+          'status': status,
+          'canon_status': snapshot['canon_status'],
+          'tags': snapshot['tags'],
+          'metadata': snapshot['metadata'],
+        };
+      }
+      await _persistDraft();
+      if (_node == null) {
+        // Retry the same first write, then save any text typed since that write.
+        // Keeping this request in the local draft also survives a browser close.
+        final creation = _creationSnapshot!;
         final created = await provider.createNode(
+          nodeId: _creationId,
           profileId: widget.profileId,
           projectId: widget.projectId,
-          kind: _kind,
-          title: title,
-          body: atelierQuillToMarkdown(_bodyController),
-          status: status,
-          canonStatus: _canonStatus,
-          tags: _tags,
-          metadata: _buildMetadata(),
+          kind: creation['kind'] as String,
+          title: creation['title'] as String,
+          body: creation['body'] as String,
+          status: creation['status'] as String,
+          canonStatus: creation['canon_status'] as String,
+          tags: List<String>.from(creation['tags'] as List),
+          metadata: creation['metadata'] as Map<String, dynamic>,
         );
+        if (created == null) throw StateError('No se confirmó el guardado');
         _node = created;
-        final workId =
-            (provider.activeProject?.metadata['publication_work_id'] as String?)
-                    ?.trim() ??
-                '';
-        publicationLinked = workId.isNotEmpty;
-        if (publicationLinked) {
-          try {
-            publicationSynced = await provider.syncPublication() != null;
-          } catch (_) {
-            publicationSynced = false;
-          }
+        final latest = {
+          'kind': snapshot['kind'],
+          'title': title,
+          'body': snapshot['body'],
+          'status': status,
+          'canon_status': snapshot['canon_status'],
+          'tags': snapshot['tags'],
+          'metadata': snapshot['metadata'],
+        };
+        if (!const DeepCollectionEquality().equals(creation, latest)) {
+          _revision++;
         }
+        _creationSnapshot = null;
       } else {
-        final result = await provider.updateNode(
+        await provider.updateNode(
           _node!.copyWith(
-            kind: _kind,
+            kind: snapshot['kind'] as String,
             title: title,
-            body: atelierQuillToMarkdown(_bodyController),
+            body: snapshot['body'] as String,
             status: status,
-            canonStatus: _canonStatus,
-            tags: _tags,
-            metadata: _buildMetadata(),
+            canonStatus: snapshot['canon_status'] as String,
+            tags: List<String>.from(snapshot['tags'] as List),
+            metadata: snapshot['metadata'] as Map<String, dynamic>,
           ),
         );
-        publicationLinked = result.publicationLinked;
-        publicationSynced = result.publicationSynced;
         _node = provider.nodeById(_node!.id) ?? _node;
       }
 
       if (!mounted) return false;
       setState(() {
-        _status = status;
-        _isDirty = false;
+        _isDirty = revision != _revision;
         _isSaving = false;
-        _lastPublicationLinked = publicationLinked;
-        _lastPublicationSynced = publicationSynced;
+        _saveFailed = false;
+        _conflict = false;
         _lastSaved = DateTime.now();
       });
+      if (!_isDirty) {
+        try {
+          await _draftStore.remove(_draftKey);
+        } catch (_) {}
+      } else {
+        await _persistDraft();
+        _scheduleSave();
+      }
       if (!silent) {
-        _showMessage(
-          !publicationLinked
-              ? 'Guardado'
-              : publicationSynced
-                  ? 'Guardado y publicación actualizada'
-                  : 'Guardado. No se pudo actualizar la publicación',
-        );
+        if (mounted) _showMessage('Guardado en el proyecto');
       }
       return true;
     } catch (error) {
       if (!mounted) return false;
-      setState(() => _isSaving = false);
-      _showMessage('No se pudo guardar: $error');
+      _conflict = error is AtelierConflictException;
+      if (error is AtelierConflictException && error.remote != null) {
+        _node = error.remote;
+        _creationSnapshot = null;
+        await _persistDraft();
+        if (!mounted) return false;
+      }
+      setState(() {
+        _isSaving = false;
+        _saveFailed = true;
+        _isDirty = true;
+      });
+      if (!_conflict) {
+        _retry = Timer(const Duration(seconds: 20), () {
+          if (mounted && _isDirty && !_exitDialogOpen) _save(silent: true);
+        });
+      }
+      if (!silent) {
+        _showMessage(
+            'No se pudo sincronizar. Conservamos tus cambios en este dispositivo si el respaldo local está disponible. Puedes reintentar.');
+      }
       return false;
     }
   }
 
   Future<void> _publish() async {
-    final ok = await _save(statusOverride: 'done', silent: true);
-    if (ok && mounted) {
-      _showMessage(
-        _lastPublicationLinked
-            ? _lastPublicationSynced
-                ? '$_kindLabel terminado y publicación actualizada'
-                : '$_kindLabel terminado. No se pudo actualizar la publicación'
-            : '$_kindLabel terminado y listo para publicar',
-      );
+    if (_publishing) return;
+    if (!_publicationLinked) {
+      if (await _save(statusOverride: 'done', silent: true) && mounted) {
+        _showMessage('$_kindLabel listo. Revisa y publica desde el proyecto.');
+      }
+      return;
+    }
+    if (!await _save(silent: true) || !mounted || _isDirty) return;
+    final confirmed = await confirmAtelierPublication(
+        context, context.read<AtelierProvider>(),
+        action: 'Actualizar publicación');
+    if (confirmed != true || !mounted) return;
+    setState(() => _publishing = true);
+    try {
+      if (!await _save(silent: true) || !mounted) return;
+      final result = await context.read<AtelierProvider>().syncPublication();
+      if (result == null) throw StateError('Sin publicación vinculada');
+      if (mounted) {
+        _showMessage(result.isPublished
+            ? 'Publicación actualizada'
+            : 'Borrador de publicación actualizado. Completa la publicación desde el proyecto.');
+      }
+    } on AtelierPublicationException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+            'El proyecto está guardado. No se pudo confirmar la actualización de la publicación; puedes reintentar.');
+      }
+    } finally {
+      if (mounted) setState(() => _publishing = false);
     }
   }
 
@@ -302,7 +749,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         content: Text(
           _node == null
               ? 'Se descartará este elemento sin guardar.'
-              : 'Se eliminará "${_node!.title}" y sus relaciones. Esta acción no se puede deshacer.',
+              : 'Se moverá "${_node!.title}" a la papelera del proyecto. Podrás recuperarlo con sus relaciones.',
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.60),
               fontSize: 13,
@@ -326,13 +773,131 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       ),
     );
 
-    if (confirmed != true || !mounted) return;
-    if (_node != null) {
-      await context
-          .read<AtelierProvider>()
-          .deleteNode(widget.profileId, _node!);
+    if (confirmed != true || !mounted || !_canEdit) return;
+    _exitDialogOpen = true;
+    _autosave?.cancel();
+    _retry?.cancel();
+    try {
+      if (_pendingSave != null) await _pendingSave;
+      _autosave?.cancel();
+      _retry?.cancel();
+      if (!mounted) return;
+      if (_node != null) {
+        if (_isDirty && !await _save(silent: true)) {
+          if (mounted) {
+            _showMessage(
+                'No se movió a la papelera: primero guarda o resuelve los cambios pendientes.');
+          }
+          return;
+        }
+        if (!mounted) return;
+        await context
+            .read<AtelierProvider>()
+            .deleteNode(widget.profileId, _node!);
+      }
+      await _draftStore.remove(_draftKey);
+      if (!mounted) return;
+      setState(() => _isDirty = false);
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+            'No se pudo mover a la papelera. El contenido se conserva.');
+      }
+    } finally {
+      _exitDialogOpen = false;
     }
-    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _resolveConflict() async {
+    if (_node == null || !_canEdit) return;
+    final provider = context.read<AtelierProvider>();
+    try {
+      await provider.load(widget.profileId, projectId: widget.projectId);
+      if (!mounted) return;
+      if (provider.error != null) throw StateError('No se pudo cargar');
+      final remote = provider.nodeById(_node!.id);
+      if (remote == null) {
+        _showMessage(
+            'El elemento no está disponible. Tu borrador local se conserva.');
+        return;
+      }
+      final mine = atelierQuillToMarkdown(_bodyController);
+      final choice = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+                title: const Text('Comparar cambios de otra sesión'),
+                content: SizedBox(
+                    width: 650,
+                    height: MediaQuery.sizeOf(ctx).height * .55,
+                    child: ListView(children: [
+                      const Text(
+                          'Compara la copia guardada con tu borrador. Conservar tu borrador reemplazará el contenido guardado; conservar la otra copia descartará los cambios de este dispositivo.'),
+                      Text(
+                          'Guardado: ${remote.title} · Tu borrador: ${_titleController.text}'),
+                      EditorialTextDiff(before: remote.body, after: mine),
+                    ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Seguir comparando después')),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, 'remote'),
+                      child: const Text('Usar copia guardada')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(ctx, 'local'),
+                      child: const Text('Conservar mi borrador')),
+                ],
+              ));
+      if (!mounted || choice == null) return;
+      if (choice == 'remote') {
+        _adoptNode(remote);
+        await _draftStore.remove(_draftKey);
+      } else {
+        await provider.createVersionSnapshot(
+            profileId: widget.profileId,
+            projectId: widget.projectId,
+            label: 'Antes de resolver cambios simultáneos',
+            description:
+                'Copia conservada antes de aceptar el borrador local.');
+        if (!mounted) return;
+        setState(() {
+          _node = remote;
+          _conflict = false;
+        });
+        await _save();
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+            'No se pudo completar la comparación. Conservamos el borrador local.');
+      }
+    }
+  }
+
+  void _adoptNode(AtelierNode node) {
+    _restoring = true;
+    unawaited(_bodyChangesSubscription.cancel());
+    _bodyController.document =
+        createAtelierQuillController(body: node.body, metadata: node.metadata)
+            .document;
+    _listenToDocument();
+    _titleController.text = node.title;
+    _restoring = false;
+    setState(() {
+      _node = node;
+      _kind = node.kind;
+      _status = node.status;
+      _canonStatus = node.canonStatus;
+      _tags = List.of(node.tags);
+      _internalDate = node.metadata['date'] as String? ?? '';
+      _purpose = node.metadata['purpose'] as String? ?? '';
+      _lastSaved = node.updatedAt;
+      _isDirty = false;
+      _conflict = false;
+      _saveFailed = false;
+    });
   }
 
   Future<void> _handleClose() async {
@@ -347,6 +912,9 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       _confirmEditorExit(confirmWhenClean: true);
 
   Future<bool> _confirmEditorExit({bool confirmWhenClean = false}) async {
+    if (_exitDialogOpen || _recovering || _publishing) return false;
+    if (_pendingSave != null) await _pendingSave;
+    if (!mounted) return false;
     if (!_isDirty) {
       if (!confirmWhenClean) return true;
       final confirmed = await showDialog<bool>(
@@ -391,6 +959,9 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       return confirmed == true;
     }
 
+    _exitDialogOpen = true;
+    _autosave?.cancel();
+    _retry?.cancel();
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -431,14 +1002,19 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       ),
     );
 
+    _exitDialogOpen = false;
     if (!mounted) return false;
     switch (choice) {
       case 'save':
-        return _save(silent: true);
+        final saved = await _save(silent: true);
+        return saved && !_isDirty;
       case 'discard':
+        await _draftStore.remove(_draftKey);
+        if (!mounted) return false;
         setState(() => _isDirty = false);
         return true;
       default:
+        _scheduleSave();
         return false;
     }
   }
@@ -452,59 +1028,317 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   }
 
   void _format(VoidCallback action) {
+    if (!_canEdit) return;
     action();
     _bodyFocusNode.requestFocus();
   }
 
-  void _insertWikilink() {
-    _format(() {
-      final selection = _bodyController.selection;
-      final plainText = _bodyController.document.toPlainText();
-      final start = selection.start.clamp(0, plainText.length).toInt();
-      final end = selection.end.clamp(start, plainText.length).toInt();
-      if (selection.isCollapsed) {
-        const label = 'Vínculo';
-        _bodyController.replaceText(
-          start,
-          0,
-          label,
-          TextSelection(baseOffset: start, extentOffset: start + label.length),
-        );
-        _bodyController.formatText(
-          start,
-          label.length,
-          const quill.LinkAttribute('wikilink:Vínculo'),
-        );
-        return;
+  void _checkTypedCommand() {
+    if (!mounted || _commandOpen || !_canEdit || _restoring || _recovering) {
+      return;
+    }
+    final selection = _bodyController.selection;
+    if (!selection.isValid || !selection.isCollapsed || selection.start < 1) {
+      return;
+    }
+    final text = _bodyController.document.toPlainText();
+    final at = selection.start - 1;
+    if (at >= text.length ||
+        (at > 0 && !RegExp(r'\s').hasMatch(text[at - 1]))) {
+      return;
+    }
+    if (text[at] == '@') _insertWikilink(triggerOffset: at);
+    if (text[at] == '/' && (at == 0 || text[at - 1] == '\n')) {
+      _openBlockCommands(at);
+    }
+  }
+
+  Future<void> _openBlockCommands(int offset) async {
+    _commandOpen = true;
+    final command = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+          child: ListView(shrinkWrap: true, children: [
+        for (final entry in {
+          'h1': 'Sección principal',
+          'h2': 'Subtítulo',
+          'h3': 'Subtítulo menor',
+          'quote': 'Cita',
+          'list': 'Lista',
+          'break': 'Separador de escena'
+        }.entries)
+          ListTile(
+              title: Text(entry.value),
+              onTap: () => Navigator.pop(ctx, entry.key)),
+      ])),
+    );
+    if (mounted &&
+        command != null &&
+        offset < _bodyController.document.length - 1 &&
+        _bodyController.document.toPlainText()[offset] == '/') {
+      _bodyController.replaceText(
+          offset, 1, '', TextSelection.collapsed(offset: offset));
+      switch (command) {
+        case 'h1':
+          _insertHeading(1);
+        case 'h2':
+          _insertHeading(2);
+        case 'h3':
+          _insertHeading(3);
+        case 'quote':
+          _insertQuote();
+        case 'list':
+          _insertListItem();
+        case 'break':
+          _insertSceneBreak();
       }
-      final label = plainText.substring(start, end);
-      _bodyController.formatSelection(
-        quill.LinkAttribute('wikilink:$label'),
-      );
-    });
+    }
+    _commandOpen = false;
+  }
+
+  Future<void> _insertWikilink({int? triggerOffset}) async {
+    if (!_canEdit || _commandOpen) return;
+    _commandOpen = true;
+    final provider = context.read<AtelierProvider>();
+    final selection = _bodyController.selection;
+    var query = '';
+    var creating = false;
+    String? creationError;
+    var newKind = 'character';
+    final target = await showModalBottomSheet<AtelierNode>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, refresh) {
+        final nodes = provider.worldNodes
+            .where((node) => atelierReferenceNames(node).any(
+                (name) => name.toLowerCase().contains(query.toLowerCase())))
+            .toList();
+        return SafeArea(
+            child: Padding(
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+                child: SizedBox(
+                    height: MediaQuery.sizeOf(ctx).height * .65,
+                    child: Column(children: [
+                      Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: TextField(
+                              autofocus: true,
+                              decoration: const InputDecoration(
+                                  labelText:
+                                      'Mencionar una ficha de Mundiarium'),
+                              onChanged: (value) =>
+                                  refresh(() => query = value))),
+                      if (nodes.isEmpty && query.trim().isEmpty)
+                        const ListTile(
+                            title: Text(
+                                'Escribe un nombre para buscar o crear una ficha.')),
+                      if (query.trim().isNotEmpty &&
+                          !provider.worldNodes.any((node) =>
+                              node.title.toLowerCase() ==
+                              query.trim().toLowerCase()))
+                        Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(children: [
+                              DropdownButtonFormField<String>(
+                                initialValue: newKind,
+                                decoration: const InputDecoration(
+                                    labelText: 'Tipo de ficha nueva'),
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: 'character',
+                                      child: Text('Personaje')),
+                                  DropdownMenuItem(
+                                      value: 'place', child: Text('Lugar')),
+                                  DropdownMenuItem(
+                                      value: 'concept',
+                                      child: Text('Concepto')),
+                                ],
+                                onChanged: creating
+                                    ? null
+                                    : (value) =>
+                                        refresh(() => newKind = value!),
+                              ),
+                              TextButton.icon(
+                                icon: const Icon(Icons.add),
+                                label: Text(creating
+                                    ? 'Creando ficha…'
+                                    : 'Crear «${query.trim()}» y vincular'),
+                                onPressed: creating
+                                    ? null
+                                    : () async {
+                                        refresh(() {
+                                          creating = true;
+                                          creationError = null;
+                                        });
+                                        try {
+                                          final created =
+                                              await provider.createNode(
+                                            profileId: widget.profileId,
+                                            projectId: widget.projectId,
+                                            kind: newKind,
+                                            title: query.trim(),
+                                          );
+                                          if (ctx.mounted && created != null) {
+                                            Navigator.pop(ctx, created);
+                                          }
+                                        } catch (_) {
+                                          if (ctx.mounted) {
+                                            refresh(() => creationError =
+                                                'No se pudo crear la ficha. Inténtalo de nuevo.');
+                                          }
+                                        } finally {
+                                          if (ctx.mounted) {
+                                            refresh(() => creating = false);
+                                          }
+                                        }
+                                      },
+                              ),
+                              const Text(
+                                  'La ficha se crea privada. Puedes completarla en Mundiarium.'),
+                              if (creationError != null)
+                                Text(creationError!,
+                                    style: const TextStyle(
+                                        color: AppColors.errorLight)),
+                            ])),
+                      Expanded(
+                          child: ListView.builder(
+                              itemCount: nodes.length,
+                              itemBuilder: (ctx, index) => ListTile(
+                                  title: Text(nodes[index].title),
+                                  onTap: () =>
+                                      Navigator.pop(ctx, nodes[index])))),
+                      if (_bodyController
+                          .getSelectionStyle()
+                          .attributes
+                          .containsKey('link'))
+                        TextButton(
+                            onPressed: () {
+                              _bodyController.formatSelection(
+                                  const quill.LinkAttribute(null));
+                              Navigator.pop(ctx);
+                            },
+                            child:
+                                const Text('Quitar vínculo de la selección')),
+                    ]))));
+      }),
+    );
+    if (mounted && target != null) {
+      final start = triggerOffset ?? (selection.isValid ? selection.start : 0);
+      final length = triggerOffset != null
+          ? 1
+          : (selection.isValid ? selection.end - selection.start : 0);
+      _bodyController.replaceText(start, length, target.title,
+          TextSelection.collapsed(offset: start + target.title.length));
+      _bodyController.formatText(start, target.title.length,
+          quill.LinkAttribute('corvus-node:${target.id}'));
+      _bodyFocusNode.requestFocus();
+    }
+    _commandOpen = false;
+  }
+
+  Future<void> _openReference(String url) async {
+    if (!url.startsWith('corvus-node:')) {
+      final uri = Uri.tryParse(url);
+      if (uri != null && {'https', 'http', 'mailto'}.contains(uri.scheme)) {
+        try {
+          await launchUrl(uri);
+        } catch (_) {
+          if (mounted) _showMessage('No se pudo abrir el vínculo.');
+        }
+      }
+      return;
+    }
+    final node = context
+        .read<AtelierProvider>()
+        .nodeById(url.substring('corvus-node:'.length));
+    if (node == null) {
+      _showMessage('La ficha no está disponible en este proyecto.');
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+          child: SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * .7,
+              child: ListView(padding: const EdgeInsets.all(24), children: [
+                Text(node.title, style: Theme.of(ctx).textTheme.headlineSmall),
+                const SizedBox(height: 16),
+                FormattedManuscriptText(text: node.body),
+                const Divider(),
+                const Text('Aparece en'),
+                for (final source in context
+                    .read<AtelierProvider>()
+                    .nodes
+                    .where((source) =>
+                        source.body.contains('corvus-node:${node.id}')))
+                  ListTile(title: Text(source.title)),
+              ]))),
+    );
+  }
+
+  Future<void> _repairReferences() async {
+    if (!_canEdit) return;
+    final provider = context.read<AtelierProvider>();
+    final original = atelierQuillDeltaJson(_bodyController);
+    final repairs = atelierReferenceRepairs(original, provider.worldNodes);
+    if (repairs.isEmpty) {
+      _showMessage(
+          'No hay referencias antiguas ni nombres vinculados pendientes de actualizar.');
+      return;
+    }
+    final choices = await showModalBottomSheet<List<AtelierReferenceChoice>>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => AtelierReferenceRepairSheet(repairs: repairs));
+    if (!mounted || choices == null || choices.isEmpty) return;
+    if (!const DeepCollectionEquality()
+            .equals(original, atelierQuillDeltaJson(_bodyController)) ||
+        choices.any((choice) =>
+            provider.nodeById(choice.target.id)?.title !=
+            choice.target.title)) {
+      _showMessage(
+          'El texto o una ficha cambió. Vuelve a revisar las referencias.');
+      return;
+    }
+    choices.sort((a, b) => b.repair.offset.compareTo(a.repair.offset));
+    for (final choice in choices) {
+      final repair = choice.repair;
+      final label = repair.replacement(choice.target);
+      _bodyController.replaceText(repair.offset, repair.source.length, label,
+          TextSelection.collapsed(offset: repair.offset + label.length));
+      _bodyController.formatText(repair.offset, label.length,
+          quill.LinkAttribute('corvus-node:${choice.target.id}'));
+    }
+    _bodyFocusNode.requestFocus();
+    _showMessage(
+        'Referencias actualizadas. Puedes deshacer los cambios desde la barra.');
   }
 
   void _insertSceneBreak() {
     _format(() {
       final selection = _bodyController.selection;
       final start = selection.start;
-      const separator = '⁂\n';
       _bodyController.replaceText(
         start,
         selection.end - start,
-        separator,
-        TextSelection.collapsed(offset: start + separator.length),
-      );
-      _bodyController.formatText(
-        start,
-        separator.length,
-        quill.Attribute.centerAlignment,
+        const quill.BlockEmbed('divider', ''),
+        TextSelection.collapsed(offset: start + 1),
       );
     });
   }
 
   void _insertHeading(int level) {
-    _toggleAttribute(level == 1 ? quill.Attribute.h1 : quill.Attribute.h2);
+    _toggleAttribute(level == 1
+        ? quill.Attribute.h1
+        : level == 2
+            ? quill.Attribute.h2
+            : quill.Attribute.h3);
   }
 
   void _insertBold() {
@@ -549,6 +1383,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   }
 
   bool _attributeIsActive(quill.Attribute<dynamic> attribute) {
+    if (attribute.key == 'align' && _alignmentMixed) return false;
     final selected =
         _bodyController.getSelectionStyle().attributes[attribute.key];
     if (attribute == quill.Attribute.leftAlignment && selected == null) {
@@ -557,26 +1392,37 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     return selected?.value == attribute.value;
   }
 
+  bool get _alignmentMixed =>
+      _bodyController
+          .getAllSelectionStyles()
+          .map((style) => style.attributes['align']?.value ?? 'left')
+          .toSet()
+          .length >
+      1;
+
   void _toggleFocusMode() {
     final next = !_focusMode;
     setState(() => _focusMode = next);
+    unawaited(_rememberAppearance());
     _bodyFocusNode.requestFocus();
     if (next) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerCaret());
+      _scheduleCaretCentering();
     }
   }
 
   Future<void> _changeStatus(String status) async {
+    if (!_canEdit) return;
     setState(() {
       _status = status;
-      _isDirty = true;
     });
+    _markDirty();
     await _save(silent: true);
   }
 
   // ─── Detalles del elemento ───────────────────────────────────────────────────
 
   Future<void> _openDetails() async {
+    if (!_canEdit) return;
     var kind = _kind;
     var status = _status;
     var canonStatus = _canonStatus;
@@ -686,8 +1532,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         _tags = tags;
         _internalDate = dateController.text.trim();
         _purpose = purposeController.text.trim();
-        _isDirty = true;
       });
+      _markDirty();
     }
   }
 
@@ -697,28 +1543,93 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   Widget build(BuildContext context) {
     final compact = MediaQuery.sizeOf(context).width < 700;
 
-    return PopScope(
-      canPop: !_isDirty,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _handleClose();
-      },
-      child: Scaffold(
-        backgroundColor: AppColors.background,
-        body: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(compact),
-              Expanded(child: _buildEditor()),
-            ],
+    return CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
+              _save(),
+          const SingleActivator(LogicalKeyboardKey.keyS, meta: true): () =>
+              _save(),
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            if (_focusMode) {
+              _toggleFocusMode();
+            } else if (_panelPinned && _panelOpen) {
+              setState(() => _panelOpen = false);
+              unawaited(_rememberAppearance());
+            }
+          },
+        },
+        child: PopScope(
+          canPop: !_isDirty && !_isSaving && !_publishing,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleClose();
+          },
+          child: Scaffold(
+            backgroundColor: AppColors.background,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _buildTopBar(compact),
+                  if (!_recovering) _buildInlineTools(true),
+                  if (!_focusMode && !_recovering)
+                    _buildSecondaryTools(compact),
+                  if (!_focusMode && _searchQuery.isNotEmpty)
+                    _buildSearchNavigation(),
+                  if (_localFailed)
+                    const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Text(
+                            'El respaldo local no está disponible. Mantén esta página abierta hasta guardar.',
+                            style: TextStyle(color: AppColors.errorLight))),
+                  if (_conflict)
+                    ListTile(
+                        title: const Text(
+                            'Este elemento cambió en otra sesión. Tu borrador se conserva.'),
+                        trailing: TextButton(
+                            onPressed: _resolveConflict,
+                            child: const Text('Comparar'))),
+                  Expanded(
+                      child: _recovering
+                          ? const Center(child: Text('Abriendo borrador…'))
+                          : Row(children: [
+                              Expanded(child: _buildEditor()),
+                              if (_panelPinned &&
+                                  _panelOpen &&
+                                  !_focusMode &&
+                                  MediaQuery.sizeOf(context).width >= 1100)
+                                SizedBox(
+                                    width: _panelWidth,
+                                    child: _buildPinnedInspector()),
+                            ])),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
-    );
+        ));
+  }
+
+  Widget _buildSecondaryTools(bool compact) {
+    final tools = <(String, IconData, VoidCallback)>[
+      ('Dossier', Icons.menu_book_outlined, () => _openInspector(0)),
+      ('Flujo', Icons.account_tree_outlined, () => _openInspector(1)),
+      ('Índice y búsqueda', Icons.toc, _openNavigator),
+      ('Apariencia', Icons.text_fields, _openAppearance),
+      ('Historial', Icons.history, _openHistory),
+      ('Revisar referencias', Icons.link, _repairReferences),
+      ('Comentarios', Icons.comment_outlined, _openComments),
+    ];
+    return Wrap(spacing: compact ? 0 : 8, children: [
+      for (final tool in tools)
+        if (compact)
+          IconButton(tooltip: tool.$1, onPressed: tool.$3, icon: Icon(tool.$2))
+        else
+          TextButton.icon(
+              onPressed: tool.$3, icon: Icon(tool.$2), label: Text(tool.$1)),
+    ]);
   }
 
   Widget _buildTopBar(bool compact) {
     return Container(
-      height: compact ? 72 : 78,
+      constraints: const BoxConstraints(minHeight: 64),
       padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 18),
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.96),
@@ -726,7 +1637,10 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           IconButton(
             onPressed: _isSaving ? null : _handleClose,
@@ -773,7 +1687,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Atelier / $_kindLabel',
+                    'Atelier / ${context.read<AtelierProvider>().activeProject?.title ?? _kindLabel}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -791,15 +1705,17 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             icon: Icons.save_outlined,
             label: 'Guardar',
             compact: compact,
-            onTap: _isSaving ? null : () => _save(),
+            onTap: _isSaving || _recovering ? null : () => _save(),
           ),
           const SizedBox(width: 8),
           _ActionButton(
             icon: Icons.approval_rounded,
-            label: _status == 'done' ? 'Terminado' : 'Terminar',
+            label: _publicationLinked
+                ? 'Actualizar publicación'
+                : 'Terminar ${_kindLabel.toLowerCase()}',
             compact: compact,
             filled: true,
-            onTap: _isSaving ? null : _publish,
+            onTap: _isSaving || _publishing || _recovering ? null : _publish,
           ),
           const SizedBox(width: 4),
           PopupMenuButton<String>(
@@ -814,11 +1730,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 case 'details':
                   _openDetails();
                 case 'draft':
-                  setState(() {
-                    _status = 'draft';
-                    _isDirty = true;
-                  });
-                  _save(silent: true);
+                  _changeStatus('draft');
                 case 'delete':
                   _delete();
               }
@@ -847,7 +1759,6 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
               ),
             ],
           ),
-          const Spacer(),
           if (!compact) ...[
             _EditorMetric(
               icon: Icons.article_outlined,
@@ -862,12 +1773,31 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             ),
             const SizedBox(width: 10),
           ],
-          _SaveStateChip(
-            label: _saveStateLabel,
-            dirty: _isDirty,
-            saving: _isSaving,
-            color: _statusColor,
+          CorvusSaveStatus(
+            state: _isSaving
+                ? CorvusSaveState.saving
+                : _saveFailed
+                    ? CorvusSaveState.error
+                    : _isDirty || _lastSaved == null
+                        ? CorvusSaveState.unsaved
+                        : CorvusSaveState.saved,
+            savedAt: _lastSaved,
+            onRetry: _conflict ? _resolveConflict : () => _save(),
           ),
+          if (_publicationLinked)
+            Text(
+                _isDirty ||
+                        !context.watch<AtelierProvider>().publicationIsCurrent
+                    ? 'Pendiente de publicar'
+                    : context
+                                .read<AtelierProvider>()
+                                .activeProject
+                                ?.metadata['publication_is_public'] ==
+                            true
+                        ? 'Publicado'
+                        : 'Borrador de publicación actualizado',
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(width: 6),
         ],
       ),
@@ -903,22 +1833,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 wide ? 34 : 18,
                 72,
               ),
-              child: wide
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(width: 280, child: _buildInspectorPanel()),
-                        const SizedBox(width: 28),
-                        Expanded(child: _buildWritingCanvas(compact: false)),
-                      ],
-                    )
-                  : Column(
-                      children: [
-                        _buildCompactInspectorMenu(),
-                        const SizedBox(height: 16),
-                        _buildWritingCanvas(compact: true),
-                      ],
-                    ),
+              child: _buildWritingCanvas(compact: !wide),
             ),
           );
         },
@@ -929,12 +1844,10 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   Widget _buildWritingCanvas({required bool compact}) {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 860),
+        constraints: const BoxConstraints(maxWidth: 800),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildInlineTools(compact),
-            const SizedBox(height: 12),
             _buildBodySurface(compact: compact),
           ],
         ),
@@ -974,6 +1887,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           const SizedBox(height: 14),
           TextField(
             controller: _titleController,
+            readOnly: !_canEdit,
             textAlign: TextAlign.center,
             maxLines: 2,
             minLines: 1,
@@ -985,6 +1899,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
             ),
             decoration: InputDecoration(
               hintText: 'Título del ${_kindLabel.toLowerCase()}',
+              filled: false,
               hintStyle: TextStyle(
                 color: Colors.white.withValues(alpha: 0.18),
                 fontSize: compact ? 26 : 34,
@@ -1011,6 +1926,43 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   }
 
   Widget _buildInlineTools(bool compact) {
+    if (_focusMode) {
+      return Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            IconButton(
+                tooltip: 'Deshacer',
+                onPressed: () => _format(_bodyController.undo),
+                icon: const Icon(Icons.undo)),
+            IconButton(
+                tooltip: 'Rehacer',
+                onPressed: () => _format(_bodyController.redo),
+                icon: const Icon(Icons.redo)),
+            PopupMenuButton<String>(
+                tooltip: 'Unidad de concentración',
+                initialValue: _focusUnit,
+                onSelected: (value) {
+                  setState(() => _focusUnit = value);
+                  _rememberAppearance();
+                  _scheduleCaretCentering();
+                },
+                itemBuilder: (_) => const [
+                      PopupMenuItem(
+                          value: 'line', child: Text('Enfocar línea')),
+                      PopupMenuItem(
+                          value: 'sentence', child: Text('Enfocar oración')),
+                      PopupMenuItem(
+                          value: 'paragraph', child: Text('Enfocar párrafo'))
+                    ],
+                child: const Padding(
+                    padding: EdgeInsets.all(12), child: Text('Enfoque ▾'))),
+            TextButton.icon(
+                onPressed: _toggleFocusMode,
+                icon: const Icon(Icons.fullscreen_exit),
+                label: const Text('Salir de concentración')),
+          ]);
+    }
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1019,121 +1971,140 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _ToolButton(
-            icon: Icons.title_rounded,
-            label: 'H1',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.h1),
-            onTap: () => _insertHeading(1),
-          ),
-          _ToolButton(
-            icon: Icons.short_text_rounded,
-            label: 'H2',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.h2),
-            onTap: () => _insertHeading(2),
-          ),
-          _ToolButton(
-            icon: Icons.format_bold_rounded,
-            label: 'Negrita',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.bold),
-            onTap: _insertBold,
-          ),
-          _ToolButton(
-            icon: Icons.format_italic_rounded,
-            label: 'Cursiva',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.italic),
-            onTap: _insertItalic,
-          ),
-          _ToolButton(
-            icon: Icons.format_underlined_rounded,
-            label: 'Subrayado',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.underline),
-            onTap: _insertUnderline,
-          ),
-          _ToolButton(
-            icon: Icons.format_strikethrough_rounded,
-            label: 'Tachado',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.strikeThrough),
-            onTap: _insertStrikeThrough,
-          ),
-          _ToolButton(
-            icon: Icons.format_quote_rounded,
-            label: 'Cita',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.blockQuote),
-            onTap: _insertQuote,
-          ),
-          _ToolButton(
-            icon: Icons.format_list_bulleted_rounded,
-            label: 'Lista',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.ul),
-            onTap: _insertListItem,
-          ),
-          _ToolButton(
-            icon: Icons.link_rounded,
-            label: 'Wikilink',
-            compact: compact,
-            onTap: _insertWikilink,
-          ),
-          _ToolButton(
-            icon: Icons.horizontal_rule_rounded,
-            label: 'Corte',
-            compact: compact,
-            onTap: _insertSceneBreak,
-          ),
-          _ToolButton(
-            icon: Icons.format_align_left_rounded,
-            label: 'Izquierda',
-            tooltip: 'Alinear a la izquierda',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.leftAlignment),
-            onTap: () => _setAlignment(TextAlign.left),
-          ),
-          _ToolButton(
-            icon: Icons.format_align_center_rounded,
-            label: 'Centrar',
-            tooltip: 'Centrar',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.centerAlignment),
-            onTap: () => _setAlignment(TextAlign.center),
-          ),
-          _ToolButton(
-            icon: Icons.format_align_right_rounded,
-            label: 'Derecha',
-            tooltip: 'Alinear a la derecha',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.rightAlignment),
-            onTap: () => _setAlignment(TextAlign.right),
-          ),
-          _ToolButton(
-            icon: Icons.format_align_justify_rounded,
-            label: 'Justificar',
-            tooltip: 'Justificar',
-            compact: compact,
-            active: _attributeIsActive(quill.Attribute.justifyAlignment),
-            onTap: () => _setAlignment(TextAlign.justify),
-          ),
-          _ToolButton(
-            icon: Icons.center_focus_strong_rounded,
-            label: 'Concentración',
-            tooltip: 'Modo concentración',
-            compact: compact,
-            active: _focusMode,
-            onTap: _toggleFocusMode,
-          ),
-        ],
-      ),
+      child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _ToolButton(
+                  icon: Icons.undo,
+                  label: 'Deshacer',
+                  compact: true,
+                  onTap: () => _format(_bodyController.undo)),
+              _ToolButton(
+                  icon: Icons.redo,
+                  label: 'Rehacer',
+                  compact: true,
+                  onTap: () => _format(_bodyController.redo)),
+              _ToolButton(
+                icon: Icons.title_rounded,
+                label: 'H1',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.h1),
+                onTap: () => _insertHeading(1),
+              ),
+              _ToolButton(
+                icon: Icons.short_text_rounded,
+                label: 'H2',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.h2),
+                onTap: () => _insertHeading(2),
+              ),
+              _ToolButton(
+                icon: Icons.format_bold_rounded,
+                label: 'Negrita',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.bold),
+                onTap: _insertBold,
+              ),
+              _ToolButton(
+                  icon: Icons.short_text,
+                  label: 'H3',
+                  compact: true,
+                  active: _attributeIsActive(quill.Attribute.h3),
+                  onTap: () => _insertHeading(3)),
+              _ToolButton(
+                icon: Icons.format_italic_rounded,
+                label: 'Cursiva',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.italic),
+                onTap: _insertItalic,
+              ),
+              _ToolButton(
+                icon: Icons.format_underlined_rounded,
+                label: 'Subrayado',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.underline),
+                onTap: _insertUnderline,
+              ),
+              _ToolButton(
+                icon: Icons.format_strikethrough_rounded,
+                label: 'Tachado',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.strikeThrough),
+                onTap: _insertStrikeThrough,
+              ),
+              _ToolButton(
+                icon: Icons.format_quote_rounded,
+                label: 'Cita',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.blockQuote),
+                onTap: _insertQuote,
+              ),
+              _ToolButton(
+                icon: Icons.format_list_bulleted_rounded,
+                label: 'Lista',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.ul),
+                onTap: _insertListItem,
+              ),
+              _ToolButton(
+                icon: Icons.link_rounded,
+                label: 'Referencia',
+                compact: compact,
+                onTap: _insertWikilink,
+              ),
+              _ToolButton(
+                icon: Icons.horizontal_rule_rounded,
+                label: 'Corte',
+                compact: compact,
+                onTap: _insertSceneBreak,
+              ),
+              _ToolButton(
+                icon: Icons.format_align_left_rounded,
+                label: 'Izquierda',
+                tooltip: 'Alinear a la izquierda',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.leftAlignment),
+                onTap: () => _setAlignment(TextAlign.left),
+              ),
+              if (_alignmentMixed)
+                const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('Alineación mixta')),
+              _ToolButton(
+                icon: Icons.format_align_center_rounded,
+                label: 'Centrar',
+                tooltip: 'Centrar',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.centerAlignment),
+                onTap: () => _setAlignment(TextAlign.center),
+              ),
+              _ToolButton(
+                icon: Icons.format_align_right_rounded,
+                label: 'Derecha',
+                tooltip: 'Alinear a la derecha',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.rightAlignment),
+                onTap: () => _setAlignment(TextAlign.right),
+              ),
+              _ToolButton(
+                icon: Icons.format_align_justify_rounded,
+                label: 'Justificar',
+                tooltip: 'Justificar',
+                compact: compact,
+                active: _attributeIsActive(quill.Attribute.justifyAlignment),
+                onTap: () => _setAlignment(TextAlign.justify),
+              ),
+              _ToolButton(
+                icon: Icons.center_focus_strong_rounded,
+                label: 'Concentración',
+                tooltip: 'Modo concentración',
+                compact: compact,
+                active: _focusMode,
+                onTap: _toggleFocusMode,
+              ),
+            ],
+          )),
     );
   }
 
@@ -1185,7 +2156,25 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
                 ],
               ),
             ),
-          _buildLiveEditorPane(compact: compact),
+          Stack(key: _manuscriptKey, children: [
+            _buildLiveEditorPane(compact: compact),
+            if (_searchQuery.isNotEmpty)
+              Positioned.fill(
+                  child: IgnorePointer(
+                      child: ValueListenableBuilder<List<Rect>>(
+                valueListenable: _searchRects,
+                builder: (_, rectangles, child) =>
+                    CustomPaint(painter: _SearchHighlight(rectangles)),
+              ))),
+            if (_focusMode)
+              Positioned.fill(
+                  child: IgnorePointer(
+                      child: ValueListenableBuilder<Rect?>(
+                valueListenable: _focusBand,
+                builder: (_, band, child) =>
+                    CustomPaint(painter: _FocusShade(band)),
+              ))),
+          ]),
         ],
       ),
     );
@@ -1198,6 +2187,60 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
       focusNode: _bodyFocusNode,
       scrollController: _editorScrollController,
       config: quill.QuillEditorConfig(
+        editorKey: _quillKey,
+        embedBuilders: const [AtelierSceneBreakBuilder()],
+        // Quill consume Escape antes de sus atajos personalizados. Este único
+        // adaptador conserva el cierre de paneles; está cubierto por regresión.
+        // ignore: experimental_member_use
+        onKeyPressed: (event, _) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.escape) {
+            if (_focusMode) {
+              _toggleFocusMode();
+              return KeyEventResult.handled;
+            }
+            if (_panelPinned && _panelOpen) {
+              setState(() => _panelOpen = false);
+              unawaited(_rememberAppearance());
+              return KeyEventResult.handled;
+            }
+          }
+          return null;
+        },
+        contextMenuBuilder: (context, state) =>
+            AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: state.contextMenuAnchors,
+          buttonItems: [
+            ...state.contextMenuButtonItems,
+            if (_canEdit && !_bodyController.selection.isCollapsed) ...[
+              ContextMenuButtonItem(
+                  label: 'Negrita',
+                  onPressed: () {
+                    ContextMenuController.removeAny();
+                    _insertBold();
+                  }),
+              ContextMenuButtonItem(
+                  label: 'Cursiva',
+                  onPressed: () {
+                    ContextMenuController.removeAny();
+                    _insertItalic();
+                  }),
+              ContextMenuButtonItem(
+                  label: 'Subrayado',
+                  onPressed: () {
+                    ContextMenuController.removeAny();
+                    _insertUnderline();
+                  }),
+              ContextMenuButtonItem(
+                  label: 'Comentar',
+                  onPressed: () {
+                    ContextMenuController.removeAny();
+                    _openComments();
+                  }),
+            ],
+          ],
+        ),
+        onLaunchUrl: _openReference,
         scrollable: false,
         expands: false,
         minHeight: compact ? 520 : 650,
@@ -1218,11 +2261,10 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
   quill.DefaultStyles _quillStyles(BuildContext context, bool compact) {
     final defaults = quill.DefaultStyles.getInstance(context);
     final bodyStyle = TextStyle(
-      color: _focusMode
-          ? AppColors.textPrimary.withValues(alpha: 0.88)
-          : AppColors.textPrimary,
-      fontSize: compact ? 16 : 17,
-      height: 1.95,
+      color: AppColors.textPrimary,
+      fontFamily: _serif ? 'CorvusLiterary' : 'sans-serif',
+      fontSize: _fontSize,
+      height: _lineHeight,
       letterSpacing: 0.05,
     );
     return quill.DefaultStyles(
@@ -1241,6 +2283,9 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
           fontWeight: FontWeight.w900,
         ),
       ),
+      h3: defaults.h3?.copyWith(
+          style: bodyStyle.copyWith(
+              fontSize: _fontSize + 3, fontWeight: FontWeight.w700)),
       bold: bodyStyle.copyWith(fontWeight: FontWeight.w900),
       italic: bodyStyle.copyWith(fontStyle: FontStyle.italic),
       underline: bodyStyle.copyWith(decoration: TextDecoration.underline),
@@ -1275,102 +2320,480 @@ class _AtelierElementEditorState extends State<AtelierElementEditor> {
     );
   }
 
-  Widget _buildInspectorPanel() {
-    return Column(
-      children: [
-        _EditorSidebarSection(
-          icon: Icons.menu_book_outlined,
-          title: 'Dossier',
-          child: Column(
-            children: [
-              _InspectorRow(label: 'Tipo', value: _kindLabel),
-              _InspectorRow(
-                label: 'Estado',
-                value: _statusLabels[_status] ?? _status,
-                color: _statusColor,
-              ),
-              _InspectorRow(
-                label: 'Canon',
-                value: _canonLabels[_canonStatus] ?? _canonStatus,
-              ),
-              if (_internalDate.trim().isNotEmpty)
-                _InspectorRow(label: 'Fecha interna', value: _internalDate),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: [
-                  _StatCapsule(label: 'Palabras', value: '$_wordCount'),
-                  _StatCapsule(label: 'Caracteres', value: '$_characterCount'),
-                  _StatCapsule(label: 'Lectura', value: '${_readingMinutes}m'),
-                ],
-              ),
-              if (_tags.isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 7,
-                  children: _tags
-                      .map((tag) => _TagPill(label: tag))
-                      .toList(growable: false),
-                ),
-              ],
-              if (_purpose.trim().isNotEmpty) ...[
-                const SizedBox(height: 14),
-                Text(
-                  _purpose,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.54),
-                    fontSize: 12,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              _PanelButton(
-                icon: Icons.tune_rounded,
-                label: 'Editar detalles',
-                onTap: _openDetails,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        _EditorSidebarSection(
-          icon: Icons.account_tree_outlined,
-          title: 'Flujo',
-          child: Column(
-            children: [
-              _StatusOption(
-                label: 'Borrador',
-                selected: _status == 'draft',
-                onTap: () => _changeStatus('draft'),
-              ),
-              _StatusOption(
-                label: 'Activo',
-                selected: _status == 'active',
-                onTap: () => _changeStatus('active'),
-              ),
-              _StatusOption(
-                label: 'En revisión',
-                selected: _status == 'review',
-                onTap: () => _changeStatus('review'),
-              ),
-              _StatusOption(
-                label: 'Terminado',
-                selected: _status == 'done',
-                onTap: () => _changeStatus('done'),
-              ),
-            ],
-          ),
-        ),
-      ],
+  Future<void> _openComments() async {
+    final selection = _bodyController.selection;
+    final text = _bodyController.document.toPlainText();
+    final anchor = AtelierTextAnchor.capture(
+        text,
+        selection.isValid ? selection.start : 0,
+        selection.isValid ? selection.end : 0);
+    if ((_isDirty || _node == null) && !await _save(silent: true)) return;
+    if (!mounted || _node == null || _isDirty) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => AtelierCommentsSheet(
+          profileId: widget.profileId,
+          projectId: widget.projectId,
+          nodeId: _node!.id,
+          selection: anchor,
+          currentText: () => _bodyController.document.toPlainText(),
+          apply: (anchor, replacement) async {
+            if (!_canEdit || !mounted) return false;
+            final position =
+                anchor.locate(_bodyController.document.toPlainText());
+            if (position == null) return false;
+            // La sugerencia conserva un punto recuperable incluso tras cerrar
+            // el editor. Si el respaldo falla, no se modifica el manuscrito.
+            await context.read<AtelierProvider>().createVersionSnapshot(
+                  profileId: widget.profileId,
+                  projectId: widget.projectId,
+                  label: 'Antes de aceptar una sugerencia',
+                  description:
+                      'Copia previa a una revisión de ${_titleController.text.trim()}.',
+                );
+            if (!mounted ||
+                anchor.locate(_bodyController.document.toPlainText()) !=
+                    position) {
+              return false;
+            }
+            _bodyController.replaceText(
+                position,
+                anchor.quote.length,
+                replacement,
+                TextSelection.collapsed(offset: position + replacement.length));
+            return await _save(silent: true) && !_isDirty;
+          }),
     );
   }
 
-  Widget _buildCompactInspectorMenu() => _buildInspectorPanel();
+  Future<void> _openHistory() async {
+    if ((_isDirty || _node == null) && !await _save(silent: true)) return;
+    if (!mounted || _node == null || _isDirty) return;
+    final provider = context.read<AtelierProvider>();
+    final restored = await showAtelierHistory(context, provider, _node!);
+    if (restored != true || !mounted) return;
+    final node = provider.nodeById(_node!.id);
+    if (node == null) return;
+    _adoptNode(node);
+  }
+
+  Future<void> _openAppearance() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(
+          builder: (ctx, refresh) => SafeArea(
+                child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Apariencia de escritura'),
+                        const Text(
+                            'Estas preferencias no cambian el texto publicado.'),
+                        SwitchListTile(
+                            title: const Text('Fuente literaria'),
+                            value: _serif,
+                            onChanged: (value) {
+                              setState(() => _serif = value);
+                              refresh(() {});
+                            }),
+                        Text('Tamaño: ${_fontSize.round()}'),
+                        Slider(
+                            value: _fontSize,
+                            min: 14,
+                            max: 28,
+                            divisions: 14,
+                            label: '${_fontSize.round()}',
+                            onChanged: (value) {
+                              setState(() => _fontSize = value);
+                              refresh(() {});
+                            }),
+                        Text('Interlineado: ${_lineHeight.toStringAsFixed(1)}'),
+                        Slider(
+                            value: _lineHeight,
+                            min: 1.3,
+                            max: 2.4,
+                            divisions: 11,
+                            label: _lineHeight.toStringAsFixed(1),
+                            onChanged: (value) {
+                              setState(() => _lineHeight = value);
+                              refresh(() {});
+                            }),
+                      ],
+                    )),
+              )),
+    );
+    await _rememberAppearance();
+  }
+
+  Future<void> _openInspector(int tab) async {
+    final mobile = MediaQuery.sizeOf(context).width < 700;
+    _panelTab = tab;
+    if (_panelPinned && MediaQuery.sizeOf(context).width >= 1100) {
+      setState(() => _panelOpen = true);
+      unawaited(_rememberAppearance());
+      return;
+    }
+    Widget panel(BuildContext ctx) => DefaultTabController(
+          length: 2,
+          initialIndex: tab,
+          child: SafeArea(
+              child: Column(children: [
+            Row(children: [
+              Expanded(
+                  child: TabBar(
+                      onTap: (value) {
+                        _panelTab = value;
+                        unawaited(_rememberAppearance());
+                      },
+                      tabs: const [Tab(text: 'Dossier'), Tab(text: 'Flujo')])),
+              if (MediaQuery.sizeOf(context).width >= 1100)
+                IconButton(
+                    tooltip: 'Fijar panel',
+                    icon: const Icon(Icons.push_pin_outlined),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _panelPinned = true;
+                        _panelOpen = true;
+                      });
+                      unawaited(_rememberAppearance());
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _bodyFocusNode.requestFocus();
+                      });
+                    }),
+              IconButton(
+                  tooltip: 'Cerrar panel',
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close)),
+            ]),
+            Expanded(
+                child: TabBarView(children: [
+              for (var i = 0; i < 2; i++)
+                SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildInspectorPanel(tab: i)),
+            ])),
+          ])),
+        );
+    if (mobile) {
+      await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          builder: (ctx) => SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * .75, child: panel(ctx)));
+    } else {
+      await showDialog<void>(
+          context: context,
+          builder: (ctx) => StatefulBuilder(
+                builder: (ctx, refresh) => Align(
+                  alignment: Alignment.centerRight,
+                  child: Material(
+                      color: AppColors.surface,
+                      child: SizedBox(
+                        width: _panelWidth,
+                        child: Row(children: [
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onHorizontalDragUpdate: (event) => refresh(() =>
+                                _panelWidth = (_panelWidth - event.delta.dx)
+                                    .clamp(300, 560)),
+                            onHorizontalDragEnd: (_) => _rememberAppearance(),
+                            child: const SizedBox(
+                                width: 12,
+                                child: Center(
+                                    child:
+                                        Icon(Icons.drag_indicator, size: 12))),
+                          ),
+                          Expanded(child: panel(ctx)),
+                        ]),
+                      )),
+                ),
+              ));
+    }
+  }
+
+  Widget _buildPinnedInspector() => Material(
+        color: AppColors.surface,
+        child: Row(children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onHorizontalDragUpdate: (event) => setState(() =>
+                _panelWidth = (_panelWidth - event.delta.dx).clamp(300, 560)),
+            onHorizontalDragEnd: (_) => _rememberAppearance(),
+            child: const SizedBox(
+                width: 12,
+                child: Center(child: Icon(Icons.drag_indicator, size: 12))),
+          ),
+          Expanded(
+              child: DefaultTabController(
+            key: ValueKey(_panelTab),
+            length: 2,
+            initialIndex: _panelTab,
+            child: Column(children: [
+              Row(children: [
+                Expanded(
+                    child: TabBar(
+                        onTap: (value) {
+                          _panelTab = value;
+                          unawaited(_rememberAppearance());
+                        },
+                        tabs: const [
+                      Tab(text: 'Dossier'),
+                      Tab(text: 'Flujo')
+                    ])),
+                IconButton(
+                    tooltip: 'Desfijar panel',
+                    icon: const Icon(Icons.push_pin),
+                    onPressed: () {
+                      setState(() {
+                        _panelPinned = false;
+                        _panelOpen = false;
+                      });
+                      unawaited(_rememberAppearance());
+                      _openInspector(_panelTab);
+                    }),
+                IconButton(
+                    tooltip: 'Cerrar panel',
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      setState(() => _panelOpen = false);
+                      unawaited(_rememberAppearance());
+                    }),
+              ]),
+              Expanded(
+                  child: TabBarView(children: [
+                for (var i = 0; i < 2; i++)
+                  SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildInspectorPanel(tab: i)),
+              ])),
+            ]),
+          )),
+        ]),
+      );
+  Future<void> _openNavigator() async {
+    final render = _quillKey.currentState?.renderEditor;
+    final visibleOffset =
+        render?.getPositionForOffset(const Offset(100, 230)).offset ?? 0;
+    final target = await showModalBottomSheet<AtelierNavigationTarget>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => AtelierManuscriptNavigator(
+        headings:
+            atelierDocumentOutline(atelierQuillDeltaJson(_bodyController)),
+        text: _bodyController.document.toPlainText(),
+        visibleOffset: visibleOffset,
+        initialQuery: _searchQuery,
+      ),
+    );
+    if (target == null || !mounted) return;
+    setState(() {
+      _searchQuery = target.query;
+      _searchOffset = target.offset;
+    });
+    _jumpToOffset(target.offset);
+  }
+
+  void _jumpToOffset(int offset) {
+    // Solo mueve la vista: mantiene cursor, selección e historial de deshacer.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final render = _quillKey.currentState?.renderEditor;
+      if (render == null || !_pageScrollController.hasClients) return;
+      final safeOffset = offset.clamp(0, _bodyController.document.length - 1);
+      final rect =
+          render.getLocalRectForCaret(TextPosition(offset: safeOffset));
+      final y = render.localToGlobal(rect.topLeft).dy;
+      _pageScrollController.jumpTo((_pageScrollController.offset + y - 240)
+          .clamp(0, _pageScrollController.position.maxScrollExtent)
+          .toDouble());
+      _updateSearchHighlight();
+    });
+  }
+
+  void _moveSearch(int direction) {
+    final matches = atelierFindOccurrences(
+        _bodyController.document.toPlainText(), _searchQuery);
+    if (matches.isEmpty) return;
+    final current = matches.indexOf(_searchOffset);
+    final next = current < 0 ? 0 : (current + direction) % matches.length;
+    setState(() => _searchOffset = matches[next]);
+    _jumpToOffset(_searchOffset);
+  }
+
+  Widget _buildSearchNavigation() {
+    final matches = atelierFindOccurrences(
+        _bodyController.document.toPlainText(), _searchQuery);
+    final current = matches.indexOf(_searchOffset);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _updateSearchHighlight());
+    return Row(children: [
+      const SizedBox(width: 16),
+      Expanded(
+          child: Text(
+              matches.isEmpty
+                  ? 'Sin coincidencias'
+                  : '${current + 1} de ${matches.length}: $_searchQuery',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis)),
+      IconButton(
+          tooltip: 'Coincidencia anterior',
+          onPressed: matches.isEmpty ? null : () => _moveSearch(-1),
+          icon: const Icon(Icons.keyboard_arrow_up)),
+      IconButton(
+          tooltip: 'Coincidencia siguiente',
+          onPressed: matches.isEmpty ? null : () => _moveSearch(1),
+          icon: const Icon(Icons.keyboard_arrow_down)),
+      IconButton(
+          tooltip: 'Cerrar búsqueda',
+          onPressed: () => setState(() {
+                _searchQuery = '';
+                _searchRects.value = [];
+              }),
+          icon: const Icon(Icons.close)),
+    ]);
+  }
+
+  void _updateSearchHighlight() {
+    if (!mounted || _searchQuery.isEmpty) return;
+    final render = _quillKey.currentState?.renderEditor;
+    final surface = _manuscriptKey.currentContext?.findRenderObject();
+    if (render == null || surface is! RenderBox) return;
+    final text = _bodyController.document.toPlainText();
+    if (_searchOffset < 0 ||
+        _searchOffset + _searchQuery.length > text.length ||
+        text
+                .substring(_searchOffset, _searchOffset + _searchQuery.length)
+                .toLowerCase() !=
+            _searchQuery.toLowerCase()) {
+      _searchRects.value = [];
+      return;
+    }
+    final rectangles = <Rect>[];
+    Rect caretRect(int offset) {
+      final position = TextPosition(offset: offset);
+      final line = render.childAtPosition(position);
+      final rect =
+          line.getLocalRectForCaret(line.globalToLocalPosition(position));
+      return surface.globalToLocal(line.localToGlobal(rect.topLeft)) &
+          rect.size;
+    }
+
+    // Dibuja encima sin añadir atributos ni cambiar la selección del documento.
+    for (var i = _searchOffset; i < _searchOffset + _searchQuery.length; i++) {
+      final a = caretRect(i);
+      final b = caretRect(i + 1);
+      final right =
+          (a.top - b.top).abs() < 2 ? b.left : a.right + _fontSize / 2;
+      rectangles.add(Rect.fromLTRB(a.left < right ? a.left : right, a.top,
+          a.left > right ? a.left : right, a.bottom));
+    }
+    _searchRects.value = rectangles;
+  }
+
+  Widget _buildInspectorPanel({required int tab}) {
+    return Column(
+      children: [
+        if (tab == 0)
+          _EditorSidebarSection(
+            icon: Icons.menu_book_outlined,
+            title: 'Dossier',
+            child: Column(
+              children: [
+                _InspectorRow(label: 'Tipo', value: _kindLabel),
+                _InspectorRow(
+                  label: 'Estado',
+                  value: _statusLabels[_status] ?? _status,
+                  color: _statusColor,
+                ),
+                _InspectorRow(
+                  label: 'Canon',
+                  value: _canonLabels[_canonStatus] ?? _canonStatus,
+                ),
+                if (_internalDate.trim().isNotEmpty)
+                  _InspectorRow(label: 'Fecha interna', value: _internalDate),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    _StatCapsule(label: 'Palabras', value: '$_wordCount'),
+                    _StatCapsule(
+                        label: 'Caracteres', value: '$_characterCount'),
+                    _StatCapsule(
+                        label: 'Lectura', value: '${_readingMinutes}m'),
+                  ],
+                ),
+                if (_tags.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: _tags
+                        .map((tag) => _TagPill(label: tag))
+                        .toList(growable: false),
+                  ),
+                ],
+                if (_purpose.trim().isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    _purpose,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.54),
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                _PanelButton(
+                  icon: Icons.tune_rounded,
+                  label: 'Editar detalles',
+                  onTap: _openDetails,
+                ),
+              ],
+            ),
+          ),
+        if (tab == 1)
+          _EditorSidebarSection(
+            icon: Icons.account_tree_outlined,
+            title: 'Flujo',
+            child: Column(
+              children: [
+                _StatusOption(
+                  label: 'Borrador',
+                  selected: _status == 'draft',
+                  onTap: () => _changeStatus('draft'),
+                ),
+                _StatusOption(
+                  label: 'Activo',
+                  selected: _status == 'active',
+                  onTap: () => _changeStatus('active'),
+                ),
+                _StatusOption(
+                  label: 'En revisión',
+                  selected: _status == 'review',
+                  onTap: () => _changeStatus('review'),
+                ),
+                _StatusOption(
+                  label: 'Terminado',
+                  selected: _status == 'done',
+                  onTap: () => _changeStatus('done'),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 // ─── Componentes ──────────────────────────────────────────────────────────────
@@ -1486,62 +2909,6 @@ class _EditorMetric extends StatelessWidget {
   }
 }
 
-class _SaveStateChip extends StatelessWidget {
-  final String label;
-  final bool dirty;
-  final bool saving;
-  final Color color;
-
-  const _SaveStateChip({
-    required this.label,
-    required this.dirty,
-    required this.saving,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveColor = dirty ? Colors.orangeAccent : color;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: effectiveColor.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: effectiveColor.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (saving)
-            const SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.primary,
-              ),
-            )
-          else
-            Icon(
-              dirty ? Icons.edit_note_rounded : Icons.check_rounded,
-              size: 14,
-              color: effectiveColor.withValues(alpha: 0.88),
-            ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: effectiveColor.withValues(alpha: 0.92),
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DocumentChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1601,51 +2968,22 @@ class _ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip ?? label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: active
-                  ? AppColors.primary.withValues(alpha: 0.16)
-                  : Colors.white.withValues(alpha: 0.045),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: active
-                    ? AppColors.primary.withValues(alpha: 0.42)
-                    : Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 16,
-                  color:
-                      active ? AppColors.primaryLight : AppColors.textSecondary,
-                ),
-                if (!compact) ...[
-                  const SizedBox(width: 7),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: active
-                          ? AppColors.primaryLight
-                          : Colors.white.withValues(alpha: 0.62),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Semantics(
+        selected: active,
+        child: IconButton(
+          tooltip: tooltip ?? label,
+          onPressed: onTap,
+          isSelected: active,
+          style: IconButton.styleFrom(
+            minimumSize: const Size(44, 44),
+            foregroundColor:
+                active ? AppColors.primaryLight : AppColors.textSecondary,
+            backgroundColor:
+                active ? AppColors.primaryMuted : Colors.transparent,
           ),
+          icon: Icon(icon, size: 20),
         ),
       ),
     );
@@ -1813,6 +3151,39 @@ class _PanelButton extends StatelessWidget {
   }
 }
 
+class _SearchHighlight extends CustomPainter {
+  final List<Rect> rectangles;
+  const _SearchHighlight(this.rectangles);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.amber.withValues(alpha: .28);
+    for (final rect in rectangles) {
+      canvas.drawRect(rect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SearchHighlight oldDelegate) =>
+      oldDelegate.rectangles != rectangles;
+}
+
+class _FocusShade extends CustomPainter {
+  final Rect? band;
+  const _FocusShade(this.band);
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (band == null) return;
+    final path = Path()
+      ..fillType = PathFillType.evenOdd
+      ..addRect(Offset.zero & size)
+      ..addRect(band!.intersect(Offset.zero & size));
+    canvas.drawPath(path, Paint()..color = Colors.black.withValues(alpha: .22));
+  }
+
+  @override
+  bool shouldRepaint(_FocusShade oldDelegate) => oldDelegate.band != band;
+}
+
 class _StatusOption extends StatelessWidget {
   final String label;
   final bool selected;
@@ -1891,51 +3262,23 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final disabled = onTap == null;
-    final fg = filled
-        ? Colors.white
-        : Colors.white.withValues(alpha: disabled ? 0.25 : 0.62);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: MouseRegion(
-        cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
-        child: Container(
-          padding:
-              EdgeInsets.symmetric(horizontal: compact ? 10 : 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: filled
-                ? (disabled
-                    ? AppColors.primary.withValues(alpha: 0.35)
-                    : AppColors.primary)
-                : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(99),
-            border: Border.all(
-              color: filled
-                  ? Colors.transparent
-                  : Colors.white.withValues(alpha: 0.10),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 15, color: fg),
-              if (!compact) ...[
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
+    if (compact) {
+      return IconButton(
+        tooltip: label,
+        onPressed: onTap,
+        icon: Icon(icon),
+        style: IconButton.styleFrom(
+            minimumSize: const Size(44, 44),
+            foregroundColor:
+                filled ? AppColors.primaryLight : AppColors.textSecondary),
+      );
+    }
+    if (filled) {
+      return FilledButton.icon(
+          onPressed: onTap, icon: Icon(icon, size: 18), label: Text(label));
+    }
+    return TextButton.icon(
+        onPressed: onTap, icon: Icon(icon, size: 18), label: Text(label));
   }
 }
 

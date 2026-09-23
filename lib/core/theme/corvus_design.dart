@@ -21,10 +21,15 @@ abstract final class CorvusRadius {
   static const double sm = 8;
   static const double md = 11;
   static const double lg = 15;
-  static const double xl = 20;
+  static const double xl = lg;
   static const double pill = 999;
 
   static BorderRadius all(double r) => BorderRadius.circular(r);
+}
+
+abstract final class CorvusControl {
+  static const double minHeight = 44;
+  static const double manuscriptWidth = 780;
 }
 
 abstract final class CorvusMotion {

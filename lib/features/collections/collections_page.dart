@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/router/session_page_state.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/corvus_design.dart';
@@ -31,7 +32,7 @@ class CollectionsPage extends StatefulWidget {
 }
 
 class _CollectionsPageState extends State<CollectionsPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SessionPageState {
   final _collectionService = CollectionService();
   final _searchController = TextEditingController();
   late final TabController _tabController;
@@ -40,10 +41,35 @@ class _CollectionsPageState extends State<CollectionsPage>
   List<Collection> _publicCollections = [];
   List<Collection> _featuredCollections = [];
   bool _isLoading = true;
+  int _loadGeneration = 0;
+  bool get _hasCollections =>
+      _myCollections.isNotEmpty ||
+      _publicCollections.isNotEmpty ||
+      _featuredCollections.isNotEmpty;
   String? _errorMessage;
   String _query = '';
   String _typeFilter = 'all';
   _CollectionSort _sort = _CollectionSort.recent;
+  @override
+  String get sessionKey => 'collections.filters';
+  @override
+  Map<String, dynamic> captureSession() => {
+        'query': _query,
+        'type': _typeFilter,
+        'sort': _sort.name,
+        'tab': _tabController.index
+      };
+  @override
+  void restoreSession(Map<String, dynamic> value) {
+    _query = value['query'] as String? ?? '';
+    _searchController.text = _query;
+    _typeFilter = value['type'] as String? ?? 'all';
+    _sort = _CollectionSort.values
+            .where((sort) => sort.name == value['sort'])
+            .firstOrNull ??
+        _CollectionSort.recent;
+    _tabController.index = (value['tab'] as int? ?? 0).clamp(0, 2);
+  }
 
   @override
   void initState() {
@@ -69,6 +95,7 @@ class _CollectionsPageState extends State<CollectionsPage>
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     final profile = context.read<AuthProvider>().profile;
     setState(() {
       _isLoading = true;
@@ -78,12 +105,13 @@ class _CollectionsPageState extends State<CollectionsPage>
       var failures = 0;
       Future<List<Collection>> guarded(
         Future<List<Collection>> request,
+        List<Collection> previous,
       ) async {
         try {
           return await request;
         } catch (_) {
           failures += 1;
-          return <Collection>[];
+          return previous;
         }
       }
 
@@ -91,11 +119,14 @@ class _CollectionsPageState extends State<CollectionsPage>
       final results = await Future.wait([
         profile == null
             ? Future.value(<Collection>[])
-            : guarded(_collectionService.getUserCollections(profile.id)),
-        guarded(_collectionService.getCollections(limit: 100)),
-        guarded(_collectionService.getFeaturedCollections()),
+            : guarded(_collectionService.getUserCollections(profile.id),
+                _myCollections),
+        guarded(
+            _collectionService.getCollections(limit: 100), _publicCollections),
+        guarded(
+            _collectionService.getFeaturedCollections(), _featuredCollections),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _myCollections = results[0];
         _publicCollections = results[1];
@@ -103,10 +134,12 @@ class _CollectionsPageState extends State<CollectionsPage>
         _isLoading = false;
         _errorMessage = failures == attemptedRequests
             ? 'No pudimos cargar las colecciones.'
-            : null;
+            : failures > 0
+                ? 'Algunas colecciones no se pudieron actualizar.'
+                : null;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoading = false;
         _errorMessage = 'No pudimos cargar las colecciones.';
@@ -159,6 +192,13 @@ class _CollectionsPageState extends State<CollectionsPage>
             const SizedBox(height: 12),
             _buildFilters(),
             const SizedBox(height: 4),
+            if (_isLoading && _hasCollections)
+              const LinearProgressIndicator(minHeight: 2),
+            if (_errorMessage != null && _hasCollections)
+              ListTile(
+                  title: Text(_errorMessage!),
+                  trailing: TextButton(
+                      onPressed: _load, child: const Text('Reintentar'))),
             TabBar(
               controller: _tabController,
               isScrollable: true,
@@ -170,7 +210,7 @@ class _CollectionsPageState extends State<CollectionsPage>
               ],
             ),
             Expanded(
-              child: _isLoading
+              child: _isLoading && !_hasCollections
                   ? const Padding(
                       padding: EdgeInsets.only(top: CorvusSpacing.xl),
                       child: CorvusSkeletonList(count: 5),
@@ -343,7 +383,7 @@ class _CollectionsPageState extends State<CollectionsPage>
     required String emptySubtitle,
     bool showCreate = false,
   }) {
-    if (_errorMessage != null) {
+    if (_errorMessage != null && collections.isEmpty) {
       return _CollectionScrollState(
         child: CorvusEmptyState(
           icon: Icons.cloud_off_outlined,
@@ -379,6 +419,7 @@ class _CollectionsPageState extends State<CollectionsPage>
                       ? 2
                       : 1;
           return GridView.builder(
+            key: PageStorageKey('collections.$emptyTitle'),
             padding: const EdgeInsets.fromLTRB(0, 16, 0, 100),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,

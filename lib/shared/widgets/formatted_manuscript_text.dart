@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'manuscript_scene_break.dart';
+import 'package:flutter/gestures.dart';
 
 import '../../core/theme/app_colors.dart';
 
-class FormattedManuscriptText extends StatelessWidget {
+class FormattedManuscriptText extends StatefulWidget {
   final String text;
   final double fontSize;
   final double lineHeight;
   final Color color;
   final bool selectable;
+  final String? fontFamily;
+  final ValueChanged<String>? onLink;
 
   const FormattedManuscriptText({
     super.key,
@@ -16,10 +20,40 @@ class FormattedManuscriptText extends StatelessWidget {
     this.lineHeight = 1.9,
     this.color = AppColors.textPrimary,
     this.selectable = true,
+    this.fontFamily,
+    this.onLink,
   });
 
   @override
+  State<FormattedManuscriptText> createState() =>
+      _FormattedManuscriptTextState();
+}
+
+class _FormattedManuscriptTextState extends State<FormattedManuscriptText> {
+  final _links = <TapGestureRecognizer>[];
+  String get text => widget.text;
+  double get fontSize => widget.fontSize;
+  double get lineHeight => widget.lineHeight;
+  Color get color => widget.color;
+  bool get selectable => widget.selectable;
+  String? get fontFamily => widget.fontFamily;
+
+  void _disposeLinks() {
+    for (final link in _links) {
+      link.dispose();
+    }
+    _links.clear();
+  }
+
+  @override
+  void dispose() {
+    _disposeLinks();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    _disposeLinks();
     final blocks = _parseBlocks(text);
     if (blocks.isEmpty) return const SizedBox.shrink();
 
@@ -40,7 +74,7 @@ class FormattedManuscriptText extends StatelessWidget {
         return _richText(
           block.text,
           TextStyle(
-            color: AppColors.textPrimary,
+            color: color,
             fontSize: fontSize +
                 switch (block.level) {
                   1 => 10,
@@ -122,7 +156,7 @@ class FormattedManuscriptText extends StatelessWidget {
           child: SelectableText(
             block.text,
             style: TextStyle(
-              color: AppColors.textPrimary.withValues(alpha: 0.88),
+              color: color,
               fontFamily: 'monospace',
               fontSize: fontSize * 0.88,
               height: 1.55,
@@ -130,17 +164,7 @@ class FormattedManuscriptText extends StatelessWidget {
           ),
         );
       case _BlockKind.divider:
-        return Center(
-          child: Container(
-            width: 56,
-            height: 2,
-            margin: EdgeInsets.symmetric(vertical: fontSize * 0.8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.42),
-              borderRadius: BorderRadius.circular(99),
-            ),
-          ),
-        );
+        return ManuscriptSceneBreak(fontSize: fontSize);
       case _BlockKind.paragraph:
         return _paragraph(block.text, block.textAlign);
     }
@@ -163,7 +187,9 @@ class FormattedManuscriptText extends StatelessWidget {
     TextStyle style, {
     TextAlign textAlign = TextAlign.left,
   }) {
-    final span = TextSpan(style: style, children: _inlineSpans(value, style));
+    final effectiveStyle = style.copyWith(fontFamily: fontFamily);
+    final span = TextSpan(
+        style: effectiveStyle, children: _inlineSpans(value, effectiveStyle));
     return SizedBox(
       width: double.infinity,
       child: selectable
@@ -195,14 +221,33 @@ class FormattedManuscriptText extends StatelessWidget {
         final link = RegExp(r'^\[([^\]\n]+)\]\(([^)\n]+)\)')
             .firstMatch(value.substring(cursor));
         if (link != null) {
-          spans.addAll(_inlineSpans(
+          final children = _inlineSpans(
             link.group(1)!,
             baseStyle.copyWith(
-              color: AppColors.primaryLight,
+              color: color.computeLuminance() < .3
+                  ? const Color(0xFF9B2335)
+                  : AppColors.primaryLight,
               decoration: TextDecoration.underline,
-              decorationColor: AppColors.primaryLight,
+              decorationColor: color.computeLuminance() < .3
+                  ? const Color(0xFF9B2335)
+                  : AppColors.primaryLight,
             ),
-          ));
+          );
+          if (widget.onLink == null) {
+            spans.addAll(children);
+          } else {
+            final recognizer = TapGestureRecognizer()
+              ..onTap = () => widget.onLink?.call(link.group(2)!);
+            _links.add(recognizer);
+            for (final child in children.whereType<TextSpan>()) {
+              spans.add(TextSpan(
+                  text: child.text,
+                  style: child.style,
+                  children: child.children,
+                  recognizer: recognizer,
+                  mouseCursor: SystemMouseCursors.click));
+            }
+          }
           cursor += link.end;
           continue;
         }
@@ -229,7 +274,11 @@ class FormattedManuscriptText extends StatelessWidget {
         if (end != -1) {
           spans.addAll(_inlineSpans(
             value.substring(cursor + 3, end),
-            baseStyle.copyWith(decoration: TextDecoration.underline),
+            baseStyle.copyWith(
+                decoration: TextDecoration.combine([
+              if (baseStyle.decoration != null) baseStyle.decoration!,
+              TextDecoration.underline,
+            ])),
           ));
           cursor = end + 4;
           continue;
@@ -257,7 +306,10 @@ class FormattedManuscriptText extends StatelessWidget {
               ),
             '**' => baseStyle.copyWith(fontWeight: FontWeight.w900),
             '~~' => baseStyle.copyWith(
-                decoration: TextDecoration.lineThrough,
+                decoration: TextDecoration.combine([
+                  if (baseStyle.decoration != null) baseStyle.decoration!,
+                  TextDecoration.lineThrough,
+                ]),
                 color: baseStyle.color?.withValues(alpha: 0.64),
               ),
             _ => baseStyle.copyWith(fontStyle: FontStyle.italic),

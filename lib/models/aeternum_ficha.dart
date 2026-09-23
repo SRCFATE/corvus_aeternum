@@ -265,6 +265,8 @@ class AeternumFicha {
     final metadata = project.metadata;
     final branch = _text(metadata['atelier_branch']);
     final linkedNodeTitles = nodes
+        .where((node) =>
+            node.visibility == 'public' && node.metadata['deleted_at'] == null)
         .where((node) => node.body.trim().isNotEmpty || node.tags.isNotEmpty)
         .map((node) => node.title.trim())
         .where((title) => title.isNotEmpty)
@@ -273,6 +275,9 @@ class AeternumFicha {
 
     List<String> nodeTitles(Set<String> kinds) {
       return nodes
+          .where((node) =>
+              node.visibility == 'public' &&
+              node.metadata['deleted_at'] == null)
           .where((node) => kinds.contains(node.kind))
           .map((node) => node.title.trim())
           .where((title) => title.isNotEmpty)
@@ -295,6 +300,14 @@ class AeternumFicha {
         'branch': branch,
         'source_project_id': project.id,
         'linked_nodes': linkedNodeTitles,
+        'public_references': nodes
+            .where((node) =>
+                node.visibility == 'public' &&
+                node.metadata['deleted_at'] == null &&
+                atelierWorldKinds.contains(node.kind))
+            .map((node) =>
+                {'id': node.id, 'title': node.title, 'body': node.body})
+            .toList(),
         'related_characters': nodeTitles({'character'}),
         'related_places': nodeTitles({'place', 'map', 'location'}),
         'related_events': nodeTitles({'event'}),
@@ -404,6 +417,7 @@ class AeternumFicha {
       'related_events': relatedEvents,
       'related_factions': relatedFactions,
       'linked_nodes': linkedNodes,
+      'public_references': raw['public_references'],
     });
   }
 }

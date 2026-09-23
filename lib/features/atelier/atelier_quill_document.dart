@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:markdown_quill/markdown_quill.dart';
+import '../../shared/widgets/manuscript_scene_break.dart';
+
+class AtelierSceneBreakBuilder extends EmbedBuilder {
+  const AtelierSceneBreakBuilder();
+  @override
+  String get key => 'divider';
+  @override
+  Widget build(BuildContext context, EmbedContext embedContext) =>
+      ManuscriptSceneBreak(fontSize: embedContext.textStyle.fontSize ?? 18);
+}
 
 const atelierRichTextDeltaKey = 'rich_text_delta';
 
@@ -32,9 +42,10 @@ QuillController createAtelierQuillController({
       extensionSet: md.ExtensionSet.gitHubFlavored,
     ),
   );
-  final delta = converter.convert(parsed.markdown);
+  final delta = converter.convert(parsed.markdown
+      .replaceAll(RegExp(r'^[ \t]*⁂[ \t]*$', multiLine: true), '***'));
   final controller = QuillController(
-    document: Document.fromDelta(delta),
+    document: delta.isEmpty ? Document() : Document.fromDelta(delta),
     selection: const TextSelection.collapsed(offset: 0),
   );
 
