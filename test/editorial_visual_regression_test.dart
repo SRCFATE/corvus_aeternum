@@ -12,9 +12,7 @@ void main() {
     await font.load();
   });
 
-  testWidgets(
-      'literary reader preserves hierarchy and contrast in all palettes',
-      (tester) async {
+  Future<void> renderPalettes(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -35,9 +33,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.textContaining('corvus-align'), findsNothing);
+  }
+
+  testWidgets('literary reader fits and remains legible in all palettes',
+      (tester) async {
+    await renderPalettes(tester);
+    final samples = find.byType(_Sample);
+    expect(samples, findsNWidgets(3));
+    for (var i = 0; i < ReaderPalette.values.length; i++) {
+      final preferences = ReaderPreferences(palette: ReaderPalette.values[i]);
+      final foreground = preferences.foreground.computeLuminance();
+      final background = preferences.background.computeLuminance();
+      final contrast = foreground > background
+          ? (foreground + .05) / (background + .05)
+          : (background + .05) / (foreground + .05);
+      expect(contrast, greaterThanOrEqualTo(4.5));
+      final bounds = tester.getRect(samples.at(i));
+      final paragraphs = find.descendant(
+          of: samples.at(i), matching: find.byType(SelectableText));
+      expect(paragraphs, findsWidgets);
+      for (final element in paragraphs.evaluate()) {
+        final rect = tester.getRect(find.byWidget(element.widget));
+        expect(rect.left, greaterThanOrEqualTo(bounds.left));
+        expect(rect.right, lessThanOrEqualTo(bounds.right));
+        expect(rect.bottom, lessThanOrEqualTo(bounds.bottom));
+      }
+    }
+  });
+
+  // Keep the pixel baseline tied to Windows + Flutter 3.44.0. CI executes this
+  // tag in its required Windows job; structural checks above run on Linux too.
+  testWidgets(
+      'literary reader preserves hierarchy and contrast in all palettes',
+      (tester) async {
+    await renderPalettes(tester);
     await expectLater(find.byKey(const ValueKey('reader-palettes')),
         matchesGoldenFile('goldens/literary_reader_palettes.png'));
-  });
+  }, tags: ['golden']);
 }
 
 class _Sample extends StatelessWidget {

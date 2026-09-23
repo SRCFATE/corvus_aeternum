@@ -20,8 +20,41 @@ permissions:
   contents: read
 
 jobs:
+  regresion-visual:
+    name: Regresión visual (Windows)
+    # La referencia con Lora se generó en Windows. El rasterizado tipográfico
+    # no es idéntico entre Windows y Linux, incluso con el mismo Flutter.
+    runs-on: windows-2022
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7.0.1
+
+      - name: Instalar Flutter 3.44.0
+        uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: 3.44.0
+          channel: stable
+          cache: true
+
+      - name: Resolver dependencias
+        run: flutter pub get
+
+      - name: Comparar referencias visuales
+        run: flutter test --no-pub --tags golden
+
+      - name: Conservar diferencias visuales
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: diferencias-visuales-windows
+          path: test/failures/**
+          if-no-files-found: ignore
+          retention-days: 7
+
   verificar-y-desplegar:
     name: Verificar y desplegar
+    # La comparación exacta de píxeles sigue siendo una barrera de despliegue.
+    needs: regresion-visual
     runs-on: ubuntu-latest
 
     steps:
@@ -45,7 +78,9 @@ jobs:
         run: flutter analyze
 
       - name: Pruebas
-        run: flutter test
+        # Las comprobaciones de estructura/contraste también corren en Linux;
+        # únicamente la comparación de píxeles vive en el trabajo de Windows.
+        run: flutter test --exclude-tags golden
 
       # `--no-web-resources-cdn` empaqueta CanvasKit en el propio sitio en vez
       # de descargarlo de gstatic.com en cada arranque. Dos motivos: la
