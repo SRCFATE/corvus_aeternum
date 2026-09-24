@@ -17,11 +17,14 @@ abstract final class CorvusSpacing {
   static const double section = 48;
 }
 
+/// Radios contenidos. Una esquina muy redonda se lee como juguete o como
+/// aplicación de consumo; la editorial prefiere el ángulo apenas suavizado,
+/// y reserva las curvas amplias para las capas que flotan: diálogos, hojas.
 abstract final class CorvusRadius {
-  static const double sm = 8;
-  static const double md = 11;
-  static const double lg = 15;
-  static const double xl = lg;
+  static const double sm = 6;
+  static const double md = 10;
+  static const double lg = 14;
+  static const double xl = 20;
   static const double pill = 999;
 
   static BorderRadius all(double r) => BorderRadius.circular(r);
@@ -54,25 +57,25 @@ abstract final class CorvusMotion {
 abstract final class CorvusElevation {
   static List<BoxShadow> get low => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.28),
-          blurRadius: 16,
-          offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: 0.30),
+          blurRadius: 18,
+          offset: const Offset(0, 6),
         ),
       ];
 
   static List<BoxShadow> get medium => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.38),
-          blurRadius: 28,
-          offset: const Offset(0, 10),
+          color: Colors.black.withValues(alpha: 0.42),
+          blurRadius: 30,
+          offset: const Offset(0, 12),
         ),
       ];
 
   static List<BoxShadow> get high => [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.50),
-          blurRadius: 48,
-          offset: const Offset(0, 20),
+          color: Colors.black.withValues(alpha: 0.55),
+          blurRadius: 56,
+          offset: const Offset(0, 24),
         ),
       ];
 
@@ -80,7 +83,7 @@ abstract final class CorvusElevation {
   /// elemento que manda en la pantalla.
   static List<BoxShadow> glow(Color accent, {double strength = 1}) => [
         BoxShadow(
-          color: accent.withValues(alpha: 0.22 * strength),
+          color: accent.withValues(alpha: 0.18 * strength),
           blurRadius: 32 * strength,
           offset: Offset(0, 8 * strength),
         ),
@@ -92,13 +95,17 @@ abstract final class CorvusElevation {
 abstract final class CorvusSurfaces {
   static Color fill(double alpha) => Colors.white.withValues(alpha: alpha);
 
-  static const double fillSubtle = 0.025;
-  static const double fillBase = 0.04;
-  static const double fillRaised = 0.06;
+  static const double fillSubtle = 0.02;
+  static const double fillBase = 0.035;
+  static const double fillRaised = 0.055;
 
-  static const double borderSubtle = 0.06;
-  static const double borderBase = 0.09;
-  static const double borderStrong = 0.14;
+  static const double borderSubtle = 0.055;
+  static const double borderBase = 0.085;
+  static const double borderStrong = 0.13;
+
+  /// Línea de un píxel, cálida. El divisor de Corvus: nunca gris puro.
+  static Color hairline([double alpha = 1]) =>
+      AppColors.border.withValues(alpha: alpha);
 
   /// Gradiente diagonal muy leve: da a las tarjetas grandes la sensación de
   /// estar iluminadas desde arriba a la izquierda.
@@ -106,8 +113,8 @@ abstract final class CorvusSurfaces {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          Colors.white.withValues(alpha: 0.045 * strength),
-          Colors.white.withValues(alpha: 0.012 * strength),
+          Colors.white.withValues(alpha: 0.04 * strength),
+          Colors.white.withValues(alpha: 0.008 * strength),
         ],
       );
 
@@ -117,60 +124,117 @@ abstract final class CorvusSurfaces {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          accent.withValues(alpha: 0.14 * strength),
-          accent.withValues(alpha: 0.02 * strength),
+          accent.withValues(alpha: 0.12 * strength),
+          accent.withValues(alpha: 0.015 * strength),
+        ],
+      );
+
+  /// Viñeta de página: oscurece apenas los bordes para que el contenido
+  /// parezca iluminado desde el centro, como una mesa de lectura.
+  static RadialGradient vignette({double strength = 1}) => RadialGradient(
+        center: const Alignment(0, -0.6),
+        radius: 1.4,
+        colors: [
+          Colors.white.withValues(alpha: 0.03 * strength),
+          Colors.transparent,
         ],
       );
 }
 
-/// Tipografía editorial. Los títulos usan tracking negativo —el detalle que
-/// más separa una interfaz cara de una genérica— y las etiquetas usan
-/// versalitas espaciadas, el lenguaje del archivo.
+/// Tipografía editorial.
+///
+/// Dos voces y nada más: una serif —Lora, la misma que lee el manuscrito— para
+/// todo lo que titula, y la sans del sistema para todo lo que opera. Los
+/// titulares llevan peso medio y tracking negativo: el detalle que más separa
+/// una interfaz cara de una genérica. Las etiquetas usan versalitas
+/// espaciadas, el lenguaje del archivo.
 abstract final class CorvusType {
+  /// La familia serif de Corvus. Se declara aquí para que ninguna pantalla
+  /// vuelva a escribir `'serif'` a mano y reciba Times en un navegador.
+  static const String serif = 'CorvusLiterary';
+
+  static const TextStyle displayLarge = TextStyle(
+    color: AppColors.textPrimary,
+    fontFamily: serif,
+    fontSize: 46,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -1.0,
+    height: 1.04,
+  );
+
   static const TextStyle display = TextStyle(
     color: AppColors.textPrimary,
-    fontFamily: 'serif',
+    fontFamily: serif,
     fontSize: 34,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.7,
     height: 1.08,
   );
 
+  static const TextStyle headline = TextStyle(
+    color: AppColors.textPrimary,
+    fontFamily: serif,
+    fontSize: 27,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.5,
+    height: 1.12,
+  );
+
   static const TextStyle title = TextStyle(
     color: AppColors.textPrimary,
-    fontFamily: 'serif',
+    fontFamily: serif,
     fontSize: 22,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.25,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.3,
     height: 1.18,
+  );
+
+  /// Cita o subtítulo en cursiva serif: la voz del archivo cuando habla bajo.
+  static const TextStyle quote = TextStyle(
+    color: AppColors.textSecondary,
+    fontFamily: serif,
+    fontSize: 16,
+    fontStyle: FontStyle.italic,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
   );
 
   static const TextStyle subtitle = TextStyle(
     color: AppColors.textPrimary,
     fontSize: 15.5,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.2,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.15,
   );
 
   static TextStyle body = TextStyle(
-    color: Colors.white.withValues(alpha: 0.62),
+    color: Colors.white.withValues(alpha: 0.64),
     fontSize: 13.5,
     height: 1.6,
     letterSpacing: 0.05,
   );
 
   static TextStyle muted = TextStyle(
-    color: Colors.white.withValues(alpha: 0.38),
+    color: Colors.white.withValues(alpha: 0.40),
     fontSize: 12.5,
     height: 1.5,
   );
 
   /// Versalita de sección: "LIBRO DE LAS CONSPIRACIONES".
-  static TextStyle eyebrow(Color color, {double alpha = 0.70}) => TextStyle(
+  static TextStyle eyebrow(Color color, {double alpha = 0.72}) => TextStyle(
         color: color.withValues(alpha: alpha),
         fontSize: 10.5,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.8,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 2.0,
+      );
+
+  /// Numeral editorial: posiciones, capítulos, folios.
+  static TextStyle numeral(Color color, {double size = 24}) => TextStyle(
+        color: color,
+        fontFamily: serif,
+        fontSize: size,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.5,
+        fontFeatures: const [FontFeature.tabularFigures()],
       );
 }
 
@@ -201,13 +265,14 @@ class CorvusPanel extends StatelessWidget {
       curve: CorvusMotion.standard,
       padding: padding,
       decoration: BoxDecoration(
+        color: raised ? AppColors.card : AppColors.surface.withValues(alpha: 0.6),
         gradient: accent != null
             ? CorvusSurfaces.accentWash(accent!, strength: raised ? 1 : 0.55)
-            : CorvusSurfaces.sheen(strength: raised ? 1.2 : 0.8),
+            : CorvusSurfaces.sheen(strength: raised ? 1.1 : 0.7),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: accent != null
-              ? accent!.withValues(alpha: raised ? 0.38 : 0.20)
+              ? accent!.withValues(alpha: raised ? 0.36 : 0.20)
               : CorvusSurfaces.fill(
                   raised
                       ? CorvusSurfaces.borderStrong
@@ -254,25 +319,20 @@ class CorvusSectionLabel extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: CorvusType.eyebrow(
               accent ?? Colors.white,
-              alpha: accent != null ? 0.75 : 0.34,
+              alpha: accent != null ? 0.75 : 0.36,
             ),
           ),
         ),
         if (count != null) ...[
           const SizedBox(width: CorvusSpacing.sm),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: CorvusSurfaces.fill(CorvusSurfaces.fillBase),
-              borderRadius: BorderRadius.circular(CorvusRadius.pill),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.42),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
+          Text(
+            '$count',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.38),
+              fontFamily: CorvusType.serif,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -283,7 +343,7 @@ class CorvusSectionLabel extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  (accent ?? Colors.white).withValues(alpha: 0.16),
+                  (accent ?? Colors.white).withValues(alpha: 0.14),
                   Colors.white.withValues(alpha: 0.0),
                 ],
               ),
@@ -291,6 +351,38 @@ class CorvusSectionLabel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// La regla editorial: una línea fina con un punto de acento en el extremo.
+/// Separa bloques de lectura sin el peso de un divisor sólido.
+class CorvusRule extends StatelessWidget {
+  final Color? accent;
+  final double indent;
+
+  const CorvusRule({super.key, this.accent, this.indent = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = accent ?? Colors.white;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: indent),
+      child: Row(
+        children: [
+          Container(
+            width: 18,
+            height: 1,
+            color: tone.withValues(alpha: 0.45),
+          ),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.07),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

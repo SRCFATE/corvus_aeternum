@@ -451,7 +451,7 @@ class _DisciplineRail extends StatelessWidget {
                   style: TextStyle(
                     color: active ? accent : AppColors.textSecondary,
                     fontSize: 12,
-                    fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
               ),
@@ -561,12 +561,7 @@ class _PodiumCard extends StatelessWidget {
               children: [
                 Text(
                   entry.position.toString().padLeft(2, '0'),
-                  style: TextStyle(
-                    color: medal,
-                    fontFamily: 'serif',
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: CorvusType.numeral(medal, size: 24),
                 ),
                 const Spacer(),
                 if (isCurrent)
@@ -605,7 +600,7 @@ class _PodiumCard extends StatelessWidget {
               style: TextStyle(
                 color: medal,
                 fontSize: 13,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
               ),
             ),
@@ -615,7 +610,7 @@ class _PodiumCard extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.35),
                 fontSize: 9,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
               ),
             ),
@@ -667,9 +662,9 @@ class _RankingRow extends StatelessWidget {
                   color: entry.position <= 3
                       ? _medalColor(entry.position)
                       : AppColors.textMuted,
-                  fontFamily: 'serif',
+                  fontFamily: CorvusType.serif,
                   fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -695,7 +690,7 @@ class _RankingRow extends StatelessWidget {
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -728,7 +723,7 @@ class _RankingRow extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text('PUNTOS', style: CorvusType.eyebrow(accent, alpha: 0.5)),

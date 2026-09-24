@@ -47,7 +47,7 @@ class PlanBadge extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: compact ? 9 : 10,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: 1.2,
             ),
           ),

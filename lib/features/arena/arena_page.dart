@@ -13,6 +13,7 @@ import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_markdown_preview.dart';
 import '../../shared/widgets/formatted_manuscript_text.dart';
 import '../../shared/widgets/corvus_motion.dart';
+import '../../core/theme/corvus_design.dart';
 
 enum _ArenaFilter { active, duels, history }
 
@@ -239,14 +240,9 @@ class _ArenaHeader extends StatelessWidget {
               style: TextStyle(
                   color: AppColors.primaryLight,
                   fontSize: 11,
-                  fontWeight: FontWeight.w900)),
+                  fontWeight: FontWeight.w700)),
           SizedBox(height: 7),
-          Text('Desafios y duelos de arte',
-              style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 27,
-                  fontWeight: FontWeight.w900,
-                  height: 1.1)),
+          Text('Desafíos y duelos de arte', style: CorvusType.headline),
           SizedBox(height: 6),
           Text(
               'Convocatorias abiertas, obra presentada y voto de la comunidad.',
@@ -330,7 +326,7 @@ class _ArenaStat extends StatelessWidget {
         const SizedBox(width: 7),
         Text(value,
             style: const TextStyle(
-                color: AppColors.textPrimary, fontWeight: FontWeight.w900)),
+                color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
         const SizedBox(width: 5),
         Text(label,
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12))
@@ -421,7 +417,7 @@ class _ChallengeCardState extends State<_ChallengeCard> {
                         style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                             height: 1.2)),
                     const SizedBox(height: 7),
                     Text(challenge.brief,
@@ -494,7 +490,7 @@ class _ArenaBadge extends StatelessWidget {
           border: Border.all(color: color.withValues(alpha: 0.32))),
       child: Text(label,
           style: TextStyle(
-              color: color, fontSize: 9.5, fontWeight: FontWeight.w900)));
+              color: color, fontSize: 9.5, fontWeight: FontWeight.w700)));
 }
 
 class _ArenaDetailDialog extends StatefulWidget {
@@ -595,7 +591,7 @@ class _ArenaDetailDialogState extends State<_ArenaDetailDialog> {
                         style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 22,
-                            fontWeight: FontWeight.w900)),
+                            fontWeight: FontWeight.w700)),
                   ])),
               if (widget.challenge.acceptsEntries && !myEntry)
                 FilledButton.icon(
@@ -623,7 +619,7 @@ class _ArenaDetailDialogState extends State<_ArenaDetailDialog> {
                           const Text('Reglas',
                               style: TextStyle(
                                   color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w900)),
+                                  fontWeight: FontWeight.w700)),
                           const SizedBox(height: 7),
                           ...widget.challenge.rules.map((rule) => Padding(
                               padding: const EdgeInsets.only(bottom: 5),
@@ -645,7 +641,7 @@ class _ArenaDetailDialogState extends State<_ArenaDetailDialog> {
                             style: const TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 17,
-                                fontWeight: FontWeight.w900)),
+                                fontWeight: FontWeight.w700)),
                         const SizedBox(height: 10),
                         if (loading)
                           const CorvusCrowLoader(label: 'Cargando obras')
@@ -723,7 +719,7 @@ class _ArenaEntryTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w900)),
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(
                     entry.profileDisplayName ??
@@ -1077,7 +1073,7 @@ class _ArenaMessage extends StatelessWidget {
             style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
-                fontWeight: FontWeight.w900)),
+                fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
         Text(message,
             textAlign: TextAlign.center,

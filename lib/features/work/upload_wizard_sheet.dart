@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../providers/conspiration_provider.dart';
+import '../../core/theme/corvus_design.dart';
 
 class _Discipline {
   final String name;
@@ -349,19 +350,14 @@ class _Header extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.34),
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.7,
-                  ),
+                  style: CorvusType.headline.copyWith(fontSize: 25),
                 ),
                 const SizedBox(height: 5),
                 Text(
@@ -506,7 +502,7 @@ class _DisciplineCardState extends State<_DisciplineCard> {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                     decoration: TextDecoration.none,
                   ),
@@ -558,8 +554,8 @@ class _SubdisciplineStep extends StatelessWidget {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.36),
               fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
             ),
           ),
           const SizedBox(height: 14),
@@ -629,7 +625,7 @@ class _SelectedDisciplineBadge extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
                   ),
                 ),
@@ -713,7 +709,7 @@ class _SubChipState extends State<_SubChip> {
                       ? widget.color
                       : Colors.white.withValues(alpha: 0.68),
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -824,7 +820,7 @@ class _Footer extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),

@@ -655,7 +655,7 @@ class _ProfileWorkCard extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.primary,
                       fontSize: 9,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -667,7 +667,7 @@ class _ProfileWorkCard extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.2,
                   ),
                 ),
@@ -753,7 +753,7 @@ class _ProfileCollectionCard extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.secondaryLight,
                       fontSize: 9,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -764,7 +764,7 @@ class _ProfileCollectionCard extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       height: 1.2,
                     ),
                   ),
@@ -833,7 +833,7 @@ class _LegacyYearSection extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -954,7 +954,7 @@ class _LegacyEntry extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         height: 1.25,
                       ),
                     ),
@@ -1265,8 +1265,8 @@ class _ProfileIdentity extends StatelessWidget {
           style: TextStyle(
             color: AppColors.primary.withValues(alpha: 0.82),
             fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.2,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.8,
           ),
         ),
         const SizedBox(height: 8),
@@ -1275,13 +1275,7 @@ class _ProfileIdentity extends StatelessWidget {
             Flexible(
               child: Text(
                 displayName,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontFamily: 'serif',
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  height: 1.05,
-                ),
+                style: CorvusType.display.copyWith(fontSize: 30),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1426,7 +1420,7 @@ class _ProfileRankSeal extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1484,7 +1478,7 @@ class _ProfilePromptCard extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1493,7 +1487,7 @@ class _ProfilePromptCard extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -1672,7 +1666,7 @@ class _ProfileEmptyPanel extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),

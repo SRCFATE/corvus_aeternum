@@ -213,7 +213,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
                 style: TextStyle(
                   color: accent,
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 3,
                 ),
               ),
@@ -275,7 +275,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
                       style: TextStyle(
                         color: accent,
                         fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -384,7 +384,7 @@ class _UsersTab extends StatelessWidget {
                           .toUpperCase(),
                       style: TextStyle(
                           color: accent,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 14),
                     ),
                   ),

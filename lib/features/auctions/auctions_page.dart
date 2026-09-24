@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/auction_service.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
+import '../../core/theme/corvus_design.dart';
 
 class AuctionsPage extends StatefulWidget {
   const AuctionsPage({super.key});
@@ -126,19 +127,12 @@ class _AuctionsPageState extends State<AuctionsPage>
                   style: TextStyle(
                     color: AppColors.primaryLight,
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 SizedBox(height: 7),
-                Text(
-                  'Subastas',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 27,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                Text('Subastas', style: CorvusType.headline),
               ],
             ),
           ),
@@ -329,7 +323,7 @@ class _AuctionCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         height: 1.2,
                       ),
                     ),
@@ -358,7 +352,7 @@ class _AuctionCard extends StatelessWidget {
                                 style: const TextStyle(
                                   color: AppColors.textMuted,
                                   fontSize: 9,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   letterSpacing: 0.8,
                                 ),
                               ),
@@ -370,7 +364,7 @@ class _AuctionCard extends StatelessWidget {
                                 style: const TextStyle(
                                   color: AppColors.primaryLight,
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -511,7 +505,7 @@ class _StatusBadge extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 9,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),
       ),

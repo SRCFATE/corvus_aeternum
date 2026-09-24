@@ -164,23 +164,9 @@ class _RegisterPageState extends State<RegisterPage> {
               const SizedBox(height: 18),
               const _MobileLogo(),
               const SizedBox(height: 28),
-              const Text(
-                'Crear cuenta',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'El primer paso hacia el legado.',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.46),
-                  fontSize: 15,
-                  height: 1.4,
-                ),
+              const AuthHeading(
+                title: 'Crear cuenta',
+                subtitle: 'El primer paso hacia el legado.',
               ),
               const SizedBox(height: 34),
               CorvusTextField(
@@ -266,7 +252,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           text: 'Acceder',
                           style: TextStyle(
                             color: AppColors.primary,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -385,49 +371,7 @@ class _LogoBlock extends StatelessWidget {
   const _LogoBlock({this.compact = false});
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: AppColors.primary.withValues(alpha: 0.30)),
-          ),
-          child: const Icon(
-            Icons.auto_awesome_rounded,
-            color: AppColors.primary,
-            size: 24,
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'CORVUS',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.2,
-              ),
-            ),
-            Text(
-              'AETERNUM',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 10,
-                letterSpacing: 3.4,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => const AuthMiniLogo();
 }
 
 

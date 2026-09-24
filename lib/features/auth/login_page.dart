@@ -168,23 +168,9 @@ class _LoginCard extends StatelessWidget {
               const AuthMiniLogo(),
               const SizedBox(height: 34),
             ],
-            const Text(
-              'Acceder',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.8,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Entra al archivo. Tu obra te espera.',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.48),
-                fontSize: 15,
-                height: 1.4,
-              ),
+            const AuthHeading(
+              title: 'Acceder',
+              subtitle: 'Entra al archivo. Tu obra te espera.',
             ),
             const SizedBox(height: 34),
             CorvusTextField(
@@ -269,7 +255,7 @@ class _LoginCard extends StatelessWidget {
                         text: 'Regístrate',
                         style: TextStyle(
                           color: AppColors.primary,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],

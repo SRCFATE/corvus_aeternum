@@ -18,6 +18,7 @@ import '../../shared/widgets/formatted_manuscript_text.dart';
 
 import 'work_reading_utils.dart';
 import 'reader_preferences.dart';
+import '../../core/theme/corvus_design.dart';
 
 class WorkChapterPage extends StatefulWidget {
   final String workId;
@@ -380,9 +381,11 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
                                                 color: _preferences.foreground,
+                                                fontFamily: CorvusType.serif,
                                                 fontSize: 34,
-                                                fontWeight: FontWeight.w900,
-                                                height: 1.1,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: -0.6,
+                                                height: 1.12,
                                               ),
                                             ),
                                           ),
@@ -635,7 +638,7 @@ class _WorkChapterPageState extends State<WorkChapterPage> {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -815,8 +818,8 @@ class _ReaderChip extends StatelessWidget {
             style: TextStyle(
               color: color.withValues(alpha: 0.88),
               fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.0,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
             ),
           ),
         ],
@@ -874,7 +877,7 @@ class _ChapterSelector extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.70),
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -916,7 +919,7 @@ class _ReaderStat extends StatelessWidget {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.56),
               fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

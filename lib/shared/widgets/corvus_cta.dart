@@ -245,7 +245,7 @@ class _CtaButton extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.background,
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.1,
                 ),
               ),
@@ -305,7 +305,7 @@ class _InlineCta extends StatelessWidget {
                 style: TextStyle(
                   color: accent,
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(width: CorvusSpacing.xs),

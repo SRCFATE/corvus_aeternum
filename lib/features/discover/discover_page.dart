@@ -201,11 +201,12 @@ class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
                           ?.disciplines
                           .isNotEmpty ??
                       false))
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                     child: Padding(
-                        padding: EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(bottom: 14),
                         child: Text(
-                            'Priorizamos obras de las disciplinas de tu perfil.'))),
+                            'Priorizamos obras de las disciplinas de tu perfil.',
+                            style: CorvusType.muted))),
               if (_error != null)
                 SliverToBoxAdapter(
                     child: ListTile(
@@ -331,14 +332,21 @@ class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
                   CorvusReveal(
                     delay: const Duration(milliseconds: 90),
                     beginOffset: const Offset(0, 16),
-                    child: Text(
-                      'Arte, literatura\ny archivo vivo.',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 40 * layout.displayScale,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1.2,
-                        height: 1.06,
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Arte, literatura\n',
+                        children: [
+                          TextSpan(
+                            text: 'y archivo vivo.',
+                            style: TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: Colors.white.withValues(alpha: 0.72),
+                            ),
+                          ),
+                        ],
+                      ),
+                      style: CorvusType.displayLarge.copyWith(
+                        fontSize: 46 * layout.displayScale,
                       ),
                     ),
                   ),
@@ -351,7 +359,7 @@ class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
                       child: Text(
                         'Piezas registradas por la comunidad, con fecha y '
                         'autoría. Lo que entra al archivo se queda.',
-                        style: CorvusType.body.copyWith(fontSize: 14.5),
+                        style: CorvusType.body.copyWith(fontSize: 15),
                       ),
                     ),
                   ),
@@ -376,21 +384,26 @@ class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 14),
-      child: Container(
+      child: AnimatedContainer(
+        duration: CorvusMotion.fast,
+        curve: CorvusMotion.standard,
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(CorvusRadius.pill),
           border: Border.all(
-            color: _isFocused ? AppColors.primary : AppColors.border,
-            width: _isFocused ? 1.5 : 0.5,
+            color: _isFocused
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.8)
+                : CorvusSurfaces.fill(CorvusSurfaces.borderBase),
+            width: 1,
           ),
+          boxShadow: _isFocused ? CorvusElevation.low : null,
         ),
         child: Row(
           children: [
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14),
+              padding: EdgeInsets.only(left: 18, right: 12),
               child: Icon(Icons.search_rounded,
-                  color: AppColors.textMuted, size: 22),
+                  color: AppColors.textMuted, size: 20),
             ),
             Expanded(
               child: TextField(
@@ -458,12 +471,7 @@ class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
         children: [
           Text(
             'BÚSQUEDAS RECIENTES',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.30),
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-            ),
+            style: CorvusType.eyebrow(Colors.white, alpha: 0.34),
           ),
           const SizedBox(height: 10),
           ..._recentSearches.map((s) => ListTile(
@@ -491,23 +499,10 @@ class _DiscoverPageState extends State<DiscoverPage> with SessionPageState {
 
   Widget _buildSectionLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 28, 0, 14),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.35),
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.4,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-              child: Container(
-                  height: 0.5, color: Colors.white.withValues(alpha: 0.07))),
-        ],
+      padding: const EdgeInsets.fromLTRB(0, 30, 0, 16),
+      child: CorvusSectionLabel(
+        label: label,
+        count: _works.isEmpty ? null : _works.length,
       ),
     );
   }
@@ -601,26 +596,31 @@ class _DisciplineChipState extends State<_DisciplineChip> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
           decoration: BoxDecoration(
             color: selected
-                ? accent
+                ? AppColors.textPrimary
                 : _hovered
-                    ? CorvusSurfaces.fill(0.09)
-                    : AppColors.overlay,
+                    ? CorvusSurfaces.fill(CorvusSurfaces.fillRaised)
+                    : CorvusSurfaces.fill(CorvusSurfaces.fillSubtle),
             borderRadius: BorderRadius.circular(CorvusRadius.pill),
             border: Border.all(
               color: selected
-                  ? accent
+                  ? AppColors.textPrimary
                   : _hovered
-                      ? accent.withValues(alpha: 0.34)
-                      : AppColors.border,
-              width: 0.5,
+                      ? accent.withValues(alpha: 0.40)
+                      : CorvusSurfaces.fill(CorvusSurfaces.borderBase),
+              width: 1,
             ),
           ),
           child: Text(
             widget.label,
             style: TextStyle(
-              color: selected ? AppColors.background : AppColors.textSecondary,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              color: selected
+                  ? AppColors.background
+                  : _hovered
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
+              fontSize: 12.5,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              letterSpacing: 0.1,
             ),
           ),
         ),

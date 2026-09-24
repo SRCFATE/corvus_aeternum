@@ -22,13 +22,16 @@ class CorvusSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final surface = AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
+      duration: CorvusMotion.fast,
+      curve: CorvusMotion.standard,
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? AppColors.card.withValues(alpha: 0.72),
-        gradient: color == null ? CorvusSurfaces.sheen(strength: 0.9) : null,
+        color: color ?? AppColors.card.withValues(alpha: 0.78),
+        gradient: color == null ? CorvusSurfaces.sheen(strength: 0.8) : null,
         borderRadius: borderRadius,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.085)),
+        border: Border.all(
+          color: CorvusSurfaces.fill(CorvusSurfaces.borderBase),
+        ),
         boxShadow: CorvusElevation.low,
       ),
       child: child,
@@ -48,6 +51,7 @@ class CorvusSurface extends StatelessWidget {
   }
 }
 
+/// Cabecera de sección: versalita, titular serif y una línea de contexto.
 class CorvusSectionHeader extends StatelessWidget {
   final String eyebrow;
   final String title;
@@ -64,6 +68,8 @@ class CorvusSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -73,20 +79,20 @@ class CorvusSectionHeader extends StatelessWidget {
             children: [
               Text(
                 eyebrow,
-                style: CorvusType.eyebrow(AppColors.primary, alpha: 0.78),
+                style: CorvusType.eyebrow(accent, alpha: 0.85),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 title,
-                style: CorvusType.title.copyWith(fontSize: 25),
+                style: CorvusType.headline.copyWith(fontSize: 26),
               ),
               const SizedBox(height: 6),
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.42),
-                  fontSize: 13,
-                  height: 1.4,
+                  color: Colors.white.withValues(alpha: 0.44),
+                  fontSize: 13.5,
+                  height: 1.45,
                 ),
               ),
             ],
@@ -101,6 +107,7 @@ class CorvusSectionHeader extends StatelessWidget {
   }
 }
 
+/// Un dato con su etiqueta. El número va en serif: es lo que se lee primero.
 class CorvusMetric extends StatelessWidget {
   final String value;
   final String label;
@@ -115,22 +122,19 @@ class CorvusMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     return CorvusSurface(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      color: Colors.white.withValues(alpha: 0.035),
+      color: Colors.white.withValues(alpha: 0.03),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: CorvusType.numeral(AppColors.textPrimary, size: 20),
           ),
           const SizedBox(height: 3),
           Text(
-            label,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+            label.toUpperCase(),
+            style: CorvusType.eyebrow(Colors.white, alpha: 0.36)
+                .copyWith(fontSize: 9.5, letterSpacing: 1.4),
           ),
         ],
       ),

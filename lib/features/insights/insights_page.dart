@@ -13,6 +13,7 @@ import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
 import '../../shared/widgets/corvus_surface.dart';
+import '../../core/theme/corvus_design.dart';
 
 class InsightsPage extends StatefulWidget {
   final CreativeInsights? initialInsights;
@@ -201,19 +202,12 @@ class _InsightsHeader extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.primary,
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 SizedBox(height: 7),
-                Text(
-                  'Pulso creativo',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 27,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                Text('Pulso creativo', style: CorvusType.headline),
               ],
             ),
           ),
@@ -334,7 +328,7 @@ class _MetricTile extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 19,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
@@ -435,7 +429,7 @@ class _ProjectProgressRow extends StatelessWidget {
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -445,7 +439,7 @@ class _ProjectProgressRow extends StatelessWidget {
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -540,7 +534,7 @@ class _TopWorkRow extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.textMuted,
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -571,7 +565,7 @@ class _TopWorkRow extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -639,7 +633,7 @@ class _DisciplinesPanel extends StatelessWidget {
                               style: const TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 11,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
@@ -698,7 +692,7 @@ class _YearActivityPanel extends StatelessWidget {
                               style: const TextStyle(
                                 color: AppColors.textMuted,
                                 fontSize: 10,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                             const SizedBox(height: 5),
@@ -773,7 +767,7 @@ class _ArchiveSummaryPanel extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.successLight,
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -820,7 +814,7 @@ class _SummaryRow extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -861,7 +855,7 @@ class _InsightPanel extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),

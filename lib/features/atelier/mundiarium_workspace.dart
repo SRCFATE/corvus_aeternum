@@ -181,7 +181,7 @@ class _UniverseGallery extends StatelessWidget {
                       style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 22,
-                          fontWeight: FontWeight.w900)),
+                          fontWeight: FontWeight.w700)),
                   SizedBox(height: 5),
                   Text(
                       'Continuidades independientes con sus obras, colecciones y extensiones transmedia.',
@@ -276,7 +276,7 @@ class _UniverseGallery extends StatelessWidget {
                                     style: const TextStyle(
                                         color: AppColors.textPrimary,
                                         fontSize: 17,
-                                        fontWeight: FontWeight.w900)),
+                                        fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 5),
                                 Text(
                                     universe.body.isEmpty
@@ -392,7 +392,7 @@ class _ModeButton extends StatelessWidget {
                       ? AppColors.textPrimary
                       : AppColors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -541,7 +541,7 @@ class _WorldNodeTile extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 13,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
@@ -613,7 +613,7 @@ class _RelationTile extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(type,
@@ -951,7 +951,7 @@ class _RelationshipNode extends StatelessWidget {
                         color: AppColors.textPrimary,
                         fontSize: compact ? 10 : 11,
                         height: 1.15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -1016,7 +1016,7 @@ class _RelationshipPainter extends CustomPainter {
             style: TextStyle(
               color: color.withValues(alpha: 0.92),
               fontSize: 9,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               backgroundColor: AppColors.background.withValues(alpha: 0.84),
             ),
           ),
@@ -1168,7 +1168,7 @@ class _CharacterTimelineBand extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1257,7 +1257,7 @@ class _TimelineRow extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.gold,
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   Text(
@@ -1265,7 +1265,7 @@ class _TimelineRow extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   if (description.isNotEmpty) ...[
@@ -1422,7 +1422,7 @@ class _CharacterSummaryCard extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 5),
@@ -1520,7 +1520,7 @@ class _MundiariumPanel extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 16,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),

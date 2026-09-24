@@ -15,6 +15,7 @@ import '../../core/router/navigation_coordinator.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/conspiration_provider.dart';
 
+import '../../shared/widgets/corvus_brand.dart';
 import '../../shared/widgets/user_avatar.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import '../work/upload_wizard_sheet.dart';
@@ -272,16 +273,16 @@ class _CorvusMobileBar extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.background.withValues(alpha: 0.90),
+            color: AppColors.background.withValues(alpha: 0.88),
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: CorvusSurfaces.hairline(),
                 width: 1,
               ),
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(12, topPad + 8, 12, 8),
+            padding: EdgeInsets.fromLTRB(12, topPad + 10, 12, 10),
             child: Row(
               children: [
                 _CircleIconButton(
@@ -369,7 +370,7 @@ class _CorvusBottomNav extends StatelessWidget {
             color: AppColors.background.withValues(alpha: 0.92),
             border: Border(
               top: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: CorvusSurfaces.hairline(),
                 width: 1,
               ),
             ),
@@ -445,14 +446,19 @@ class _BottomNavTile extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: selected
-                      ? accent.withValues(alpha: 0.16)
+                      ? accent.withValues(alpha: 0.13)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(CorvusRadius.pill),
+                  border: Border.all(
+                    color: selected
+                        ? accent.withValues(alpha: 0.28)
+                        : Colors.transparent,
+                  ),
                 ),
                 child: Icon(
                   selected ? item.activeIcon : item.icon,
                   color: color,
-                  size: 21,
+                  size: 20,
                 ),
               ),
               const SizedBox(height: 3),
@@ -460,10 +466,10 @@ class _BottomNavTile extends StatelessWidget {
                 duration: CorvusMotion.fast,
                 curve: CorvusMotion.standard,
                 style: TextStyle(
-                  color: color,
+                  color: selected ? AppColors.textPrimary : color,
                   fontSize: 10,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  letterSpacing: 0.1,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  letterSpacing: 0.2,
                 ),
                 child: Text(
                   item.label,
@@ -722,8 +728,13 @@ class _DrawerTile extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color:
-                selected ? accent.withValues(alpha: 0.14) : Colors.transparent,
+                selected ? accent.withValues(alpha: 0.12) : Colors.transparent,
             borderRadius: BorderRadius.circular(CorvusRadius.md),
+            border: Border.all(
+              color: selected
+                  ? accent.withValues(alpha: 0.26)
+                  : Colors.transparent,
+            ),
           ),
           child: Row(
             children: [
@@ -739,9 +750,12 @@ class _DrawerTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: selected ? Colors.white : AppColors.textSecondary,
+                    color: selected
+                        ? AppColors.textPrimary
+                        : AppColors.textSecondary,
                     fontSize: 14,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    letterSpacing: -0.1,
                   ),
                 ),
               ),
@@ -797,21 +811,21 @@ class _CorvusDesktopBar extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.background.withValues(alpha: 0.90),
+            color: AppColors.background.withValues(alpha: 0.86),
             border: Border(
               bottom: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: CorvusSurfaces.hairline(),
                 width: 1,
               ),
             ),
           ),
           child: Padding(
-            padding: EdgeInsets.fromLTRB(18, topPad + 10, 18, 10),
+            padding: EdgeInsets.fromLTRB(24, topPad + 12, 24, 12),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 1600),
                 child: SizedBox(
-                  height: 46,
+                  height: 44,
                   child: Row(
                     children: [
                       _BrandLogo(onTap: () => onTabSelected(0)),
@@ -848,23 +862,24 @@ class _CorvusDesktopBar extends StatelessWidget {
                           if (profile != null) ...[
                             GestureDetector(
                               onTap: () => onTabSelected(3),
-                              child: Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.24),
+                              child: MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: CorvusSurfaces.fill(
+                                          CorvusSurfaces.borderStrong),
+                                    ),
                                   ),
-                                ),
-                                child: Center(
-                                  child: UserAvatar(
-                                    imageUrl: profile.avatarUrl,
-                                    displayName: profile.displayName,
-                                    radius: 15,
+                                  child: Center(
+                                    child: UserAvatar(
+                                      imageUrl: profile.avatarUrl,
+                                      displayName: profile.displayName,
+                                      radius: 15,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1470,14 +1485,14 @@ class _HoverNavLinkState extends State<_HoverNavLink> {
                 curve: CorvusMotion.standard,
                 style: TextStyle(
                   color: widget.selected
-                      ? Colors.white
+                      ? AppColors.textPrimary
                       : hovered
-                          ? Colors.white.withValues(alpha: 0.88)
-                          : AppColors.textMuted,
+                          ? Colors.white.withValues(alpha: 0.86)
+                          : AppColors.textSecondary,
                   fontSize: 13.5,
                   fontWeight:
-                      widget.selected ? FontWeight.w800 : FontWeight.w600,
-                  letterSpacing: -0.1,
+                      widget.selected ? FontWeight.w600 : FontWeight.w500,
+                  letterSpacing: 0.1,
                 ),
                 child: Text(widget.label),
               ),
@@ -1496,19 +1511,11 @@ class _HoverNavLinkState extends State<_HoverNavLink> {
           AnimatedContainer(
             duration: CorvusMotion.medium,
             curve: CorvusMotion.standard,
-            height: 2,
-            width: widget.selected ? 18 : (hovered ? 10 : 0),
+            height: 1.5,
+            width: widget.selected ? 22 : (hovered ? 12 : 0),
             decoration: BoxDecoration(
-              color: widget.selected ? accent : accent.withValues(alpha: 0.55),
+              color: widget.selected ? accent : accent.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(CorvusRadius.pill),
-              boxShadow: widget.selected
-                  ? [
-                      BoxShadow(
-                        color: accent.withValues(alpha: 0.55),
-                        blurRadius: 8,
-                      ),
-                    ]
-                  : null,
             ),
           ),
         ],
@@ -1547,50 +1554,19 @@ class _BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: compact ? 28 : 30,
-              height: compact ? 28 : 30,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.28),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.10),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(
-                Icons.auto_awesome_rounded,
-                color: AppColors.primary,
-                size: compact ? 15 : 16,
-              ),
-            ),
-            if (showName) ...[
-              const SizedBox(width: 10),
-              Text(
-                compact ? 'Corvus' : 'Corvus Aeternum',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ],
-          ],
+    return Semantics(
+      button: true,
+      label: 'Corvus Aeternum',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: CorvusBrand(
+            compact: compact,
+            showName: showName,
+            markSize: compact ? 28 : 30,
+          ),
         ),
       ),
     );
@@ -1624,9 +1600,10 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     final bgColor = widget.highlighted
-        ? AppColors.primary.withValues(alpha: hovered ? 0.26 : 0.18)
-        : Colors.white.withValues(alpha: hovered ? 0.08 : 0.045);
+        ? accent.withValues(alpha: hovered ? 0.22 : 0.14)
+        : Colors.white.withValues(alpha: hovered ? 0.06 : 0.025);
 
     Widget button = MouseRegion(
       onEnter: (_) => setState(() => hovered = true),
@@ -1640,24 +1617,28 @@ class _CircleIconButtonState extends State<_CircleIconButton> {
         child: AnimatedContainer(
           duration: CorvusMotion.fast,
           curve: CorvusMotion.standard,
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(12),
+            shape: BoxShape.circle,
             border: Border.all(
-              color: hovered
-                  ? Colors.white.withValues(alpha: 0.14)
-                  : Colors.white.withValues(alpha: 0.07),
+              color: widget.highlighted
+                  ? accent.withValues(alpha: hovered ? 0.5 : 0.32)
+                  : hovered
+                      ? Colors.white.withValues(alpha: 0.18)
+                      : Colors.white.withValues(alpha: 0.09),
               width: 1,
             ),
           ),
           child: Icon(
             widget.icon,
             color: widget.highlighted
-                ? AppColors.primary
-                : AppColors.textSecondary,
-            size: 19,
+                ? accent
+                : hovered
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+            size: 18,
           ),
         ),
       ),
@@ -1697,45 +1678,45 @@ class _PrimaryPillButtonState extends State<_PrimaryPillButton> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
     return MouseRegion(
       onEnter: (_) => setState(() => hovered = true),
       onExit: (_) => setState(() => hovered = false),
       child: CorvusPressable(
         onTap: widget.onTap,
         haptics: true,
-        hoverScale: 1.035,
+        hoverScale: 1.03,
         hoverLift: 1,
-        pressedScale: 0.955,
+        pressedScale: 0.96,
         child: AnimatedContainer(
           duration: CorvusMotion.fast,
           curve: CorvusMotion.standard,
+          height: widget.large ? 40 : 34,
           padding: EdgeInsets.symmetric(
-            horizontal: widget.large ? 20 : 15,
-            vertical: widget.large ? 13 : 9,
+            horizontal: widget.large ? 18 : 14,
           ),
           decoration: BoxDecoration(
-            color: hovered
-                ? AppColors.primary.withValues(alpha: 0.95)
-                : AppColors.primary,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: hovered
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.28),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : [],
+            color: hovered ? Color.lerp(accent, Colors.white, 0.08) : accent,
+            borderRadius: BorderRadius.circular(CorvusRadius.pill),
+            boxShadow: hovered ? CorvusElevation.glow(accent) : const [],
           ),
-          child: Text(
-            widget.label,
-            style: const TextStyle(
-              color: AppColors.background,
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.1,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.add_rounded,
+                  size: 16, color: AppColors.background.withValues(alpha: 0.9)),
+              const SizedBox(width: 6),
+              Text(
+                widget.label,
+                style: const TextStyle(
+                  color: AppColors.background,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
           ),
         ),
       ),

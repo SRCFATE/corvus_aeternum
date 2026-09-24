@@ -636,8 +636,8 @@ class _UsernameChangeSection extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.28),
                 fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.8,
               ),
             ),
             const SizedBox(width: 10),
@@ -654,7 +654,7 @@ class _UsernameChangeSection extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
               ),
             ),
@@ -881,7 +881,7 @@ class _UsernameChangeDialogState extends State<_UsernameChangeDialog> {
             style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w800)),
+                fontWeight: FontWeight.w700)),
       ]),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1010,7 +1010,7 @@ class _UsernameChangeDialogState extends State<_UsernameChangeDialog> {
                     color: canSubmit
                         ? AppColors.primary
                         : Colors.white.withValues(alpha: 0.20),
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
         ),
@@ -1127,7 +1127,7 @@ class _DangerZone extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.redAccent.withValues(alpha: 0.90),
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 0.2,
                 ),
               ),
@@ -1212,7 +1212,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
             style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w800),
+                fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -1286,7 +1286,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
               color: _canConfirm
                   ? Colors.redAccent
                   : Colors.white.withValues(alpha: 0.20),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),

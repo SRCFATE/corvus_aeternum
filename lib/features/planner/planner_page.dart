@@ -11,6 +11,7 @@ import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
 import '../../shared/widgets/corvus_markdown_preview.dart';
 import '../../shared/widgets/corvus_surface.dart';
+import '../../core/theme/corvus_design.dart';
 
 enum _TaskFilter { today, upcoming, all }
 
@@ -378,7 +379,7 @@ class _PlannerPageState extends State<PlannerPage> {
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 19,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     SizedBox(height: 4),
@@ -446,19 +447,12 @@ class _PlannerHeader extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.gold,
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 SizedBox(height: 7),
-                Text(
-                  'Calendario y diario',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 27,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                Text('Calendario y diario', style: CorvusType.headline),
               ],
             ),
           ),
@@ -527,7 +521,7 @@ class _TaskTile extends StatelessWidget {
                           ? AppColors.textMuted
                           : AppColors.textPrimary,
                       fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       decoration:
                           entry.isCompleted ? TextDecoration.lineThrough : null,
                     ),
@@ -616,7 +610,7 @@ class _JournalTile extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 17,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
@@ -624,7 +618,7 @@ class _JournalTile extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.secondaryLight,
                     fontSize: 9,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -640,7 +634,7 @@ class _JournalTile extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -779,7 +773,7 @@ class _PlannerInlineEmpty extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 16),

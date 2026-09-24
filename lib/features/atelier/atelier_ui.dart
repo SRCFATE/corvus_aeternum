@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../models/atelier_models.dart';
 import '../../providers/atelier_provider.dart';
 import 'atelier_catalog.dart';
+import '../../core/theme/corvus_design.dart';
 
 class AtelierPanel extends StatelessWidget {
   final Color accent;
@@ -53,7 +54,7 @@ class AtelierPanel extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -95,14 +96,7 @@ class AtelierSectionHeader extends StatelessWidget {
           children: [
             AtelierEyebrow(eyebrow, color: accent),
             const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+            Text(title, style: CorvusType.headline),
             const SizedBox(height: 5),
             Text(
               subtitle,
@@ -188,11 +182,7 @@ class AtelierMetricCard extends StatelessWidget {
             metric.value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-            ),
+            style: CorvusType.numeral(AppColors.textPrimary, size: 21),
           ),
           const SizedBox(height: 4),
           Text(
@@ -306,7 +296,7 @@ class AtelierNodeCard extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 14,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
@@ -369,7 +359,7 @@ class AtelierSelectableNodeRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           subtitle: Text(
@@ -425,7 +415,7 @@ class AtelierNodeRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           subtitle: Text(
@@ -480,7 +470,7 @@ class AtelierRelationRow extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -529,7 +519,7 @@ class AtelierIssueRow extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -583,7 +573,7 @@ class AtelierChecklistRow extends StatelessWidget {
                 color:
                     item.done ? AppColors.textPrimary : AppColors.textSecondary,
                 fontSize: 13,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -631,7 +621,7 @@ class AtelierMessagePanel extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 9),
@@ -791,7 +781,7 @@ class AtelierInfoLine extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -805,7 +795,7 @@ class AtelierInfoLine extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -855,7 +845,7 @@ class AtelierActionButton extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.background,
                     fontSize: 12,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -906,7 +896,7 @@ class AtelierSoftButton extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -1050,7 +1040,7 @@ class AtelierTag extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -1083,11 +1073,7 @@ class AtelierMiniMetric extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-            ),
+            style: CorvusType.numeral(AppColors.textPrimary, size: 16),
           ),
           const SizedBox(height: 2),
           Text(
@@ -1114,12 +1100,7 @@ class AtelierEyebrow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label.toUpperCase(),
-      style: TextStyle(
-        color: color.withValues(alpha: 0.84),
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.2,
-      ),
+      style: CorvusType.eyebrow(color, alpha: 0.84),
     );
   }
 }

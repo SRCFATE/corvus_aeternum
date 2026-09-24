@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import 'glossary_data.dart';
+import '../../core/theme/corvus_design.dart';
 
 String _normalize(String value) {
   const from = 'áàäâãéèëêíìïîóòöôõúùüûñ';
@@ -234,20 +235,12 @@ class _GlossaryPageState extends State<GlossaryPage> {
                 style: TextStyle(
                   color: AppColors.primary.withValues(alpha: 0.70),
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 1.8,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Glosario',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                ),
-              ),
+              const Text('Glosario', style: CorvusType.display),
               const SizedBox(height: 4),
               Text(
                 'Categorias artisticas, sectores, generos y subgeneros del archivo creativo.',
@@ -383,7 +376,7 @@ class _GlossaryPageState extends State<GlossaryPage> {
                               ? AppColors.primary
                               : AppColors.textSecondary,
                           fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -469,7 +462,7 @@ class _GlossaryPageState extends State<GlossaryPage> {
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.4,
                 ),
               ),
@@ -622,7 +615,7 @@ class _HeaderMetric extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 5),
@@ -631,7 +624,7 @@ class _HeaderMetric extends StatelessWidget {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.42),
               fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -710,7 +703,7 @@ class _ArtisticCategoryRailItemState extends State<_ArtisticCategoryRailItem> {
                                 .withValues(alpha: active ? 0.72 : 0.62),
                         fontSize: 13,
                         fontWeight:
-                            widget.selected ? FontWeight.w800 : FontWeight.w600,
+                            widget.selected ? FontWeight.w700 : FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -734,7 +727,7 @@ class _ArtisticCategoryRailItemState extends State<_ArtisticCategoryRailItem> {
                       ? AppColors.primary.withValues(alpha: 0.75)
                       : Colors.white.withValues(alpha: 0.24),
                   fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -790,7 +783,7 @@ class _ArtisticCategoryChip extends StatelessWidget {
                     ? AppColors.primary
                     : Colors.white.withValues(alpha: 0.55),
                 fontSize: 12,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ],
@@ -933,7 +926,7 @@ class _SectorCardState extends State<_SectorCard> {
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 15,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   height: 1.16,
                 ),
               ),
@@ -1012,7 +1005,7 @@ class _GlossarySectionBlock extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -0.2,
                       ),
                     ),
@@ -1141,7 +1134,7 @@ class _TermCardState extends State<_TermCard> {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -1201,7 +1194,7 @@ class _TermCardState extends State<_TermCard> {
               style: TextStyle(
                 color: AppColors.primary.withValues(alpha: 0.72),
                 fontSize: 11,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -1289,7 +1282,7 @@ class _SubgenrePreview extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.58),
                   fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -1308,7 +1301,7 @@ class _SubgenrePreview extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.primary.withValues(alpha: 0.86),
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -1351,7 +1344,7 @@ class _SubTermRow extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.25,
                   ),
                 ),
@@ -1406,7 +1399,7 @@ class _CategoryBadge extends StatelessWidget {
             style: TextStyle(
               color: AppColors.primary.withValues(alpha: 0.85),
               fontSize: 10,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

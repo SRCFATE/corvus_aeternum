@@ -30,6 +30,7 @@ import 'atelier_publication_dialog.dart';
 import 'character_editor_page.dart';
 import 'mundiarium_workspace.dart';
 import 'universe_editor_page.dart';
+import '../../core/theme/corvus_design.dart';
 
 enum AtelierInitialSection {
   home,
@@ -1978,11 +1979,7 @@ class _AtelierTopBar extends StatelessWidget {
                     titleText,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: CorvusType.headline.copyWith(fontSize: 26),
                   ),
                   SizedBox(height: 2),
                   Text(
@@ -2283,11 +2280,7 @@ class _HomeView extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     project.title,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                    ),
+                    style: CorvusType.headline.copyWith(fontSize: 28),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -3178,8 +3171,8 @@ class _AtelierRailSection extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.0,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.8,
           ),
         ),
         children: [child],
@@ -3218,7 +3211,7 @@ class _RailDetail extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 11,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -3277,7 +3270,7 @@ class _SectionNav extends StatelessWidget {
                   color:
                       active ? AppColors.textPrimary : AppColors.textSecondary,
                   fontSize: 13,
-                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
             ],
@@ -3602,8 +3595,8 @@ class _ProjectWizardHeader extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.34),
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -3611,11 +3604,7 @@ class _ProjectWizardHeader extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w900,
-                  ),
+                  style: CorvusType.headline.copyWith(fontSize: 25),
                 ),
                 const SizedBox(height: 5),
                 Text(
@@ -3638,7 +3627,7 @@ class _ProjectWizardHeader extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.52),
                 fontSize: 12,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             )
           else
@@ -3787,7 +3776,7 @@ class _ProjectWizardFooter extends StatelessWidget {
             ),
             label: Text(
               isLastStep ? 'Guardar' : 'Continuar',
-              style: TextStyle(fontWeight: FontWeight.w900),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -3832,8 +3821,8 @@ class _ProjectFieldGroup extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.36),
                 fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.8,
               ),
             ),
           ],
@@ -4000,7 +3989,7 @@ class _SelectionOptionChipState extends State<_SelectionOptionChip> {
                       ? AppColors.textPrimary
                       : Colors.white.withValues(alpha: 0.66),
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -4046,7 +4035,7 @@ class _AeternumSwitchTile extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -4117,7 +4106,7 @@ class _AeternumReviewPanel extends StatelessWidget {
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -4159,7 +4148,7 @@ class _AeternumReviewPanel extends StatelessWidget {
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -4298,7 +4287,7 @@ class _ProjectBranchCardState extends State<_ProjectBranchCard> {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -4482,7 +4471,7 @@ class _ProjectTypeCardState extends State<_ProjectTypeCard> {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -4612,7 +4601,7 @@ class _ProjectLanguageChipState extends State<_ProjectLanguageChip> {
                         ? widget.accent
                         : Colors.white.withValues(alpha: 0.58),
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -4626,7 +4615,7 @@ class _ProjectLanguageChipState extends State<_ProjectLanguageChip> {
                       ? AppColors.textPrimary
                       : Colors.white.withValues(alpha: 0.64),
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -4736,7 +4725,7 @@ class _ProjectStatusChipState extends State<_ProjectStatusChip> {
                       ? AppColors.textPrimary
                       : Colors.white.withValues(alpha: 0.66),
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -4888,7 +4877,7 @@ class _CoverImageSelectorState extends State<_CoverImageSelector> {
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 6),

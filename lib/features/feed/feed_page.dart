@@ -420,7 +420,7 @@ class _HeroSection extends StatelessWidget {
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: isWide ? 50 : 44,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 0.95,
             ),
           ),
@@ -661,7 +661,7 @@ class _FeaturedWorkInfo extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       height: 1.12,
                       shadows: [Shadow(color: Colors.black54, blurRadius: 12)],
                     ),
@@ -709,7 +709,7 @@ class _FeaturedLoadingText extends StatelessWidget {
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.85),
           fontSize: 16,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
       );
 }
@@ -860,7 +860,7 @@ class _FeatureCardState extends State<_FeatureCard> {
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 15,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -918,7 +918,7 @@ class _TrendingHeader extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.4,
                 ),
               ),
@@ -1020,7 +1020,7 @@ class _AccentBadge extends StatelessWidget {
             style: TextStyle(
               color: accent,
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: -0.1,
             ),
           ),
@@ -1060,7 +1060,7 @@ class _SoftBadge extends StatelessWidget {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.62),
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -1114,7 +1114,7 @@ class _CTAButtonState extends State<_CTAButton> {
               style: const TextStyle(
                 color: AppColors.background,
                 fontSize: 13,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.1,
               ),
             ),
@@ -1168,7 +1168,7 @@ class _SecondaryCTAState extends State<_SecondaryCTA> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: hovered ? 0.86 : 0.62),
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -1219,7 +1219,7 @@ class _Pill extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: -0.2,
             ),
           ),
@@ -1258,7 +1258,7 @@ class _SmallButton extends StatelessWidget {
           style: const TextStyle(
             color: AppColors.background,
             fontSize: 12,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -1375,7 +1375,7 @@ class _GhostButtonState extends State<_GhostButton> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: hovered ? 0.88 : 0.68),
               fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),

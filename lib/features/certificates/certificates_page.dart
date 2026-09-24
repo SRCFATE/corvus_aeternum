@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/certificate_service.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
+import '../../core/theme/corvus_design.dart';
 
 class CertificatesPage extends StatefulWidget {
   const CertificatesPage({super.key});
@@ -147,19 +148,12 @@ class _CertificatesPageState extends State<CertificatesPage> {
                   style: TextStyle(
                     color: AppColors.gold,
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
                 SizedBox(height: 7),
-                Text(
-                  'Certificados',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 27,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                Text('Certificados', style: CorvusType.headline),
               ],
             ),
           ),
@@ -287,8 +281,8 @@ class _CertificateCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.gold,
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.8,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -299,7 +293,7 @@ class _CertificateCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),

@@ -8,6 +8,8 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../shared/widgets/corvus_button.dart';
 import '../../shared/widgets/corvus_text_field.dart';
+import '../../core/theme/corvus_design.dart';
+import 'auth_chrome.dart';
 
 const _disciplines = [
   'Pintura',
@@ -222,13 +224,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
       children: [
         const Text(
           'Tu identidad\nen Corvus',
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            color: AppColors.textPrimary,
-            height: 1.05,
-            letterSpacing: -1,
-          ),
+          style: CorvusType.display,
         ),
         const SizedBox(height: 10),
         Text(
@@ -251,7 +247,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
               style: TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 15,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -307,13 +303,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
       children: [
         const Text(
           'Tu práctica\nartística',
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            color: AppColors.textPrimary,
-            height: 1.05,
-            letterSpacing: -1,
-          ),
+          style: CorvusType.display,
         ),
         const SizedBox(height: 10),
         Text(
@@ -347,7 +337,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 15,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const Spacer(),
@@ -541,8 +531,9 @@ class _SidePanel extends StatelessWidget {
                     cleanName[0].toUpperCase(),
                     style: const TextStyle(
                       color: AppColors.primary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
+                      fontFamily: CorvusType.serif,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -552,7 +543,7 @@ class _SidePanel extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -595,7 +586,7 @@ class _SidePanel extends StatelessWidget {
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontSize: 11,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       );
@@ -609,13 +600,7 @@ class _SidePanel extends StatelessWidget {
             step == 0
                 ? 'Primero definimos tu identidad pública.'
                 : 'Ahora definimos tu territorio creativo.',
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              height: 1.08,
-              letterSpacing: -0.8,
-            ),
+            style: CorvusType.headline,
           ),
         ],
       ),
@@ -695,7 +680,7 @@ class _DisciplineChipState extends State<_DisciplineChip> {
                       ? AppColors.background
                       : Colors.white.withValues(alpha: 0.66),
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -710,54 +695,7 @@ class _LogoBlock extends StatelessWidget {
   const _LogoBlock();
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.30),
-            ),
-          ),
-          child: const Icon(
-            Icons.auto_awesome_rounded,
-            color: AppColors.primary,
-            size: 23,
-          ),
-        ),
-        const SizedBox(width: 13),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'CORVUS',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 3.2,
-                height: 1,
-              ),
-            ),
-            SizedBox(height: 3),
-            Text(
-              'AETERNUM',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 3.8,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => const AuthMiniLogo();
 }
 
 class _ProfileBackground extends StatelessWidget {

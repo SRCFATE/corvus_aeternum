@@ -91,7 +91,7 @@ class CorvusMarkdownPreview extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.48),
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],

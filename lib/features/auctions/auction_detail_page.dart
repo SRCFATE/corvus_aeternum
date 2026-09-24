@@ -13,6 +13,7 @@ import '../../services/auction_service.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
+import '../../core/theme/corvus_design.dart';
 
 class AuctionDetailPage extends StatefulWidget {
   final String auctionId;
@@ -392,12 +393,7 @@ class _AuctionDetailPageState extends State<AuctionDetailPage> {
         const SizedBox(height: 12),
         Text(
           auction.lotTitle,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            height: 1.1,
-          ),
+          style: CorvusType.headline.copyWith(fontSize: 30),
         ),
         const SizedBox(height: 7),
         Text(
@@ -437,8 +433,8 @@ class _AuctionDetailPageState extends State<AuctionDetailPage> {
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.8,
                 ),
               ),
             ),
@@ -496,7 +492,7 @@ class _AuctionDetailPageState extends State<AuctionDetailPage> {
                     style: const TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 9,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -538,18 +534,14 @@ class _AuctionDetailPageState extends State<AuctionDetailPage> {
             style: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.0,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             formatter.format(auction.displayBid),
-            style: const TextStyle(
-              color: AppColors.primaryLight,
-              fontSize: 30,
-              fontWeight: FontWeight.w900,
-            ),
+            style: CorvusType.numeral(AppColors.textPrimary, size: 32),
           ),
           Text(
             '${auction.bidsCount} pujas · ${auction.watchersCount} seguidores',
@@ -658,7 +650,7 @@ class _AuctionDetailPageState extends State<AuctionDetailPage> {
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -748,7 +740,7 @@ class _AuctionDetailPageState extends State<AuctionDetailPage> {
                   ? AppColors.primaryLight
                   : AppColors.textSecondary,
               fontSize: 13,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -812,7 +804,7 @@ class _AuctionBadge extends StatelessWidget {
         style: const TextStyle(
           color: AppColors.primaryLight,
           fontSize: 9,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),
       ),

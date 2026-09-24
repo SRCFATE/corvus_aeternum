@@ -9,6 +9,7 @@ import '../../shared/widgets/corvus_motion.dart';
 import '../../shared/widgets/corvus_text_field.dart';
 import '../../shared/widgets/formatted_manuscript_text.dart';
 import '../../shared/widgets/user_avatar.dart';
+import '../../core/theme/corvus_design.dart';
 
 class ForumThreadPage extends StatefulWidget {
   final String forumId;
@@ -191,7 +192,7 @@ class _ForumThreadPageState extends State<ForumThreadPage> {
                       style: TextStyle(
                         color: AppColors.primaryLight,
                         fontSize: 11,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(width: 9),
@@ -209,7 +210,7 @@ class _ForumThreadPageState extends State<ForumThreadPage> {
                         style: TextStyle(
                           color: forum.accentColor,
                           fontSize: 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -372,12 +373,7 @@ class _ThreadHeader extends StatelessWidget {
           if (thread.isPinned || thread.isLocked) const SizedBox(height: 9),
           Text(
             thread.title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 24,
-              height: 1.18,
-              fontWeight: FontWeight.w900,
-            ),
+            style: CorvusType.headline.copyWith(fontSize: 25),
           ),
         ],
       ),
@@ -414,7 +410,7 @@ class _ThreadStatus extends StatelessWidget {
             style: TextStyle(
               color: color,
               fontSize: 10.5,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -475,7 +471,7 @@ class _MessageCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
@@ -494,7 +490,7 @@ class _MessageCard extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
             ],
@@ -554,7 +550,7 @@ class _ReplyComposer extends StatelessWidget {
               style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 12,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 12),
@@ -679,7 +675,7 @@ class _ThreadMessage extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 7),

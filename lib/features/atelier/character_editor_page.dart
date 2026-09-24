@@ -430,7 +430,7 @@ class _CharacterEditorPageState extends State<CharacterEditorPage> {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -469,7 +469,7 @@ class _CharacterEditorPageState extends State<CharacterEditorPage> {
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: compact ? 26 : 34,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -479,7 +479,7 @@ class _CharacterEditorPageState extends State<CharacterEditorPage> {
                 style: TextStyle(
                   color: _dirty ? AppColors.gold : AppColors.successLight,
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
           ],
@@ -726,7 +726,7 @@ class _CharacterSection extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 17,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -793,7 +793,7 @@ class _TemplateChoice extends StatelessWidget {
                         ? AppColors.textPrimary
                         : AppColors.textSecondary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -898,7 +898,7 @@ class _TimelineRow extends StatelessWidget {
                                 style: const TextStyle(
                                   color: AppColors.gold,
                                   fontSize: 10,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             const SizedBox(height: 3),
@@ -907,7 +907,7 @@ class _TimelineRow extends StatelessWidget {
                               style: const TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 15,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/corvus_design.dart';
 import 'corvus_crow_animations.dart';
 
 class CorvusEmptyState extends StatelessWidget {
@@ -20,74 +21,60 @@ class CorvusEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const FallingFeather(height: 42),
-            const SizedBox(height: 4),
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
-              ),
-              child: Icon(icon,
-                  color: Colors.white.withValues(alpha: 0.22), size: 28),
-            ),
-            const SizedBox(height: 22),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.38),
-                fontSize: 13,
-                height: 1.55,
-              ),
-            ),
-            if (actionText != null && onAction != null) ...[
-              const SizedBox(height: 24),
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: onAction,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.10),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.30)),
-                    ),
-                    child: Text(
-                      actionText!,
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const FallingFeather(height: 42),
+              const SizedBox(height: 4),
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: CorvusSurfaces.fill(CorvusSurfaces.fillSubtle),
+                  border: Border.all(
+                    color: CorvusSurfaces.fill(CorvusSurfaces.borderBase),
                   ),
                 ),
+                child: Icon(icon,
+                    color: Colors.white.withValues(alpha: 0.26), size: 24),
               ),
+              const SizedBox(height: 22),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: CorvusType.title.copyWith(fontSize: 20),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.42),
+                  fontSize: 13.5,
+                  height: 1.55,
+                ),
+              ),
+              if (actionText != null && onAction != null) ...[
+                const SizedBox(height: 24),
+                OutlinedButton(
+                  onPressed: onAction,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: BorderSide(color: accent.withValues(alpha: 0.45)),
+                  ),
+                  child: Text(actionText!),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

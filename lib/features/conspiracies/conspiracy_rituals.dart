@@ -512,7 +512,7 @@ class _RitualSheetState extends State<_RitualSheet> {
                               : Colors.white.withValues(alpha: 0.62),
                           fontSize: 12.5,
                           fontWeight:
-                              selected ? FontWeight.w800 : FontWeight.w500,
+                              selected ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                     ),
@@ -624,7 +624,7 @@ class _RitualChoice extends StatelessWidget {
                       ? AppColors.textPrimary
                       : Colors.white.withValues(alpha: 0.62),
                   fontSize: 13,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 )),
             const SizedBox(height: 2),
             Text(hint, style: CorvusType.muted.copyWith(fontSize: 11)),

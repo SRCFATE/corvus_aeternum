@@ -10,6 +10,7 @@ import '../../shared/widgets/corvus_motion.dart';
 import '../../shared/widgets/corvus_text_field.dart';
 import '../../shared/widgets/formatted_manuscript_text.dart';
 import '../../shared/widgets/user_avatar.dart';
+import '../../core/theme/corvus_design.dart';
 
 class ForumDetailPage extends StatefulWidget {
   final String forumId;
@@ -351,7 +352,7 @@ class _ForumHeader extends StatelessWidget {
                             style: TextStyle(
                               color: accent,
                               fontSize: 10.5,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -375,12 +376,7 @@ class _ForumHeader extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   forum.name,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    height: 1.08,
-                  ),
+                  style: CorvusType.headline.copyWith(fontSize: 30),
                 ),
                 const SizedBox(height: 10),
                 FormattedManuscriptText(
@@ -571,7 +567,7 @@ class _MembershipGate extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 18,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 7),
@@ -644,7 +640,7 @@ class _CommunityGuidelines extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -696,7 +692,7 @@ class _ModerationPanel extends StatelessWidget {
       leading: const Icon(Icons.admin_panel_settings_outlined),
       title: const Text(
         'Gestión de la comunidad',
-        style: TextStyle(fontWeight: FontWeight.w800),
+        style: TextStyle(fontWeight: FontWeight.w700),
       ),
       subtitle: Text(
         pending.isEmpty
@@ -836,7 +832,7 @@ class _ThreadsSection extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.primaryLight,
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 SizedBox(height: 5),
@@ -845,7 +841,7 @@ class _ThreadsSection extends StatelessWidget {
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 21,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -885,7 +881,7 @@ class _ThreadsSection extends StatelessWidget {
                 SizedBox(height: 10),
                 Text(
                   'Inicia la primera conversación',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -967,7 +963,7 @@ class _ThreadCard extends StatelessWidget {
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 14,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -1124,7 +1120,7 @@ class _DetailMessage extends StatelessWidget {
               style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 7),

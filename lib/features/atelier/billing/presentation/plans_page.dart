@@ -338,7 +338,7 @@ class _IntervalChip extends StatelessWidget {
           style: TextStyle(
             color: selected ? AppColors.background : AppColors.textSecondary,
             fontSize: 12.5,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
           ),
         ),

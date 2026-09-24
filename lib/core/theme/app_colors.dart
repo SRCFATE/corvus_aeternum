@@ -1,51 +1,59 @@
 import 'package:flutter/material.dart';
 
+/// La paleta de Corvus.
+///
+/// Tinta, carbón y pergamino. Un archivo se lee sobre negro cálido, no sobre
+/// el gris azulado de un panel de control: la temperatura acerca las
+/// superficies a una edición impresa y hace que el marfil del texto parezca
+/// papel y no pantalla. Los escalones entre fondo, superficie y tarjeta son
+/// deliberadamente cortos —la profundidad la ponen las líneas finas y la
+/// sombra, no el gris más claro—, y el carmesí se reserva para lo que manda.
 abstract final class AppColors {
-  // Tinta, carbón y pergamino. La temperatura cálida evita el aspecto de
-  // dashboard tecnológico y acerca las superficies a una edición impresa.
-  static const Color background = Color(0xFF0B0908);
-  static const Color surface = Color(0xFF12100E);
-  static const Color card = Color(0xFF181411);
-  static const Color cardElevated = Color(0xFF211A16);
-  static const Color overlay = Color(0xFF1B1613);
+  // Fondo y superficies, de la más profunda a la más elevada.
+  static const Color background = Color(0xFF0A0908);
+  static const Color surface = Color(0xFF110F0D);
+  static const Color card = Color(0xFF171412);
+  static const Color cardElevated = Color(0xFF1F1B17);
+  static const Color overlay = Color(0xFF1A1613);
 
-  // Borders
-  static const Color border = Color(0xFF342820);
-  static const Color borderFocus = Color(0xFF7A433D);
+  // Líneas. Finas y cálidas; el contraste viene del borde, no del relleno.
+  static const Color border = Color(0xFF2E2620);
+  static const Color borderFocus = Color(0xFF6E3B37);
 
-  // Primary — Carmesí (color de acción e identidad)
-  static const Color primary = Color(0xFFB8403E);
-  static const Color primaryLight = Color(0xFFD75A54);
-  static const Color primaryDark = Color(0xFF762421);
-  static const Color primaryMuted = Color(0xFF32100F);
+  // Primario — carmesí de tinta. Acción, identidad y nada más.
+  static const Color primary = Color(0xFFB2413E);
+  static const Color primaryLight = Color(0xFFD25C57);
+  static const Color primaryDark = Color(0xFF6E2522);
+  static const Color primaryMuted = Color(0xFF2C1110);
 
-  // Secondary — Púrpura profundo (secundario/decorativo)
-  static const Color secondary = Color(0xFF9A744C);
-  static const Color secondaryLight = Color(0xFFC19A66);
-  static const Color secondaryMuted = Color(0xFF302417);
+  // Secundario — ocre de encuadernación. Decorativo, nunca de acción.
+  static const Color secondary = Color(0xFF9A7A54);
+  static const Color secondaryLight = Color(0xFFC4A16E);
+  static const Color secondaryMuted = Color(0xFF2C2218);
 
-  // Accent — mismo rojo carmesí
-  static const Color accent = Color(0xFFB8403E);
-  static const Color accentLight = Color(0xFFD75A54);
-  static const Color accentMuted = Color(0xFF32100F);
+  // Acento — el mismo carmesí.
+  static const Color accent = primary;
+  static const Color accentLight = primaryLight;
+  static const Color accentMuted = primaryMuted;
 
-  // Text
-  static const Color textPrimary = Color(0xFFF3EDE2);
-  static const Color textSecondary = Color(0xFFAAA093);
-  static const Color textMuted = Color(0xFF746A60);
-  static const Color textDisabled = Color(0xFF49413A);
+  // Texto. Marfil, no blanco: el blanco puro sobre negro vibra en pantallas
+  // OLED y cansa a la tercera página.
+  static const Color textPrimary = Color(0xFFF1EBE0);
+  static const Color textSecondary = Color(0xFFA89E91);
+  static const Color textMuted = Color(0xFF6F665C);
+  static const Color textDisabled = Color(0xFF453E38);
 
-  // Semantic
-  static const Color success = Color(0xFF2E7D52);
-  static const Color successLight = Color(0xFF4CAF7E);
-  static const Color error = Color(0xFFC62828);
-  static const Color errorLight = Color(0xFFEF5350);
-  static const Color warning = Color(0xFFE67E22);
+  // Semánticos, apagados a la misma temperatura que el resto.
+  static const Color success = Color(0xFF3A7D5A);
+  static const Color successLight = Color(0xFF5FB088);
+  static const Color error = Color(0xFFB83B3B);
+  static const Color errorLight = Color(0xFFE05F5F);
+  static const Color warning = Color(0xFFD08A3C);
 
-  // Special
-  static const Color gold = Color(0xFFD0AC62);
-  static const Color silver = Color(0xFFB7B3AA);
-  static const Color bronze = Color(0xFFB47B4E);
+  // Metales, para insignias y posiciones.
+  static const Color gold = Color(0xFFCFAE66);
+  static const Color silver = Color(0xFFB5B1A8);
+  static const Color bronze = Color(0xFFB07A50);
 
   // Transparent
   static const Color transparent = Colors.transparent;

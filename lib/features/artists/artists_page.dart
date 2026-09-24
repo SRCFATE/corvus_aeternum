@@ -13,6 +13,7 @@ import '../../services/profile_service.dart';
 import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
 import '../../shared/widgets/corvus_skeleton.dart';
+import '../../core/theme/corvus_design.dart';
 
 const _disciplines = [
   'Todas',
@@ -244,15 +245,7 @@ class _Header extends StatelessWidget {
               duration: const Duration(milliseconds: 180),
               child: IgnorePointer(
                 ignoring: searchOpen,
-                child: const Text(
-                  'Artistas',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.6,
-                  ),
-                ),
+                child: const Text('Artistas', style: CorvusType.headline),
               ),
             ),
             if (!searchOpen) const Spacer(),
@@ -436,7 +429,7 @@ class _DisciplineChips extends StatelessWidget {
                       ? AppColors.background
                       : Colors.white.withValues(alpha: 0.6),
                   fontSize: 12,
-                  fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
             ),
@@ -798,7 +791,7 @@ class _ArtistCardState extends State<_ArtistCard> {
                       style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 15,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: -0.3),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1032,7 +1025,7 @@ class _FollowButtonState extends State<_FollowButton> {
                         ? Colors.white.withValues(alpha: 0.7)
                         : AppColors.background,
                     fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.1,
                   ),
                 ),
@@ -1076,7 +1069,7 @@ class _Avatar extends StatelessWidget {
           style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: radius * 0.72,
-              fontWeight: FontWeight.w800)),
+              fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -1093,7 +1086,7 @@ class _Stat extends StatelessWidget {
           style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: -0.3)),
       const SizedBox(height: 1),
       Text(label,

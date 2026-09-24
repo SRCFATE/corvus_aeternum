@@ -702,7 +702,7 @@ class _UploadWorkPageState extends State<UploadWorkPage> {
             style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w800)),
+                fontWeight: FontWeight.w700)),
         content: Text(
           'Tienes cambios sin guardar. Puedes conservarlos como borrador y retomarlos después.',
           style: TextStyle(
@@ -729,7 +729,7 @@ class _UploadWorkPageState extends State<UploadWorkPage> {
             onPressed: () => Navigator.of(ctx).pop('save'),
             child: const Text('Guardar borrador',
                 style: TextStyle(
-                    color: AppColors.primary, fontWeight: FontWeight.w800)),
+                    color: AppColors.primary, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -1442,7 +1442,7 @@ class _SealSheetState extends State<_SealSheet> {
                     style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 19,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -0.4)),
               ),
               IconButton(
@@ -1498,13 +1498,13 @@ class _SealSheetState extends State<_SealSheet> {
                           style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 14,
-                              fontWeight: FontWeight.w800)),
+                              fontWeight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Text(tag,
                           style: const TextStyle(
                               color: AppColors.primary,
                               fontSize: 11,
-                              fontWeight: FontWeight.w800)),
+                              fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
@@ -1739,7 +1739,7 @@ class _TopBar extends StatelessWidget {
                   style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 18,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -0.3)),
               if (isDirty)
                 Text('• sin guardar',
@@ -1813,14 +1813,14 @@ class _SelectedDisciplineCard extends StatelessWidget {
                     style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.36),
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.0)),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.8)),
                 const SizedBox(height: 4),
                 Text(label,
                     style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 13,
-                        fontWeight: FontWeight.w900)),
+                        fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -1837,7 +1837,7 @@ class _SelectedDisciplineCard extends StatelessWidget {
                   style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.65),
                       fontSize: 11,
-                      fontWeight: FontWeight.w800)),
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -1981,7 +1981,7 @@ class _ImagePickerCardState extends State<_ImagePickerCard> {
                             color: Colors.white
                                 .withValues(alpha: _hovered ? 0.95 : 0.75),
                             fontSize: 15,
-                            fontWeight: FontWeight.w900)),
+                            fontWeight: FontWeight.w700)),
                     const SizedBox(height: 6),
                     Text('JPG, PNG — recomendado 1200 px',
                         style: TextStyle(
@@ -2033,7 +2033,7 @@ class _OverlayAction extends StatelessWidget {
             const SizedBox(width: 6),
             Text(label,
                 style: TextStyle(
-                    color: color, fontSize: 12, fontWeight: FontWeight.w800)),
+                    color: color, fontSize: 12, fontWeight: FontWeight.w700)),
           ],
         ),
       ),
@@ -2079,8 +2079,8 @@ class _WorkPreviewCard extends StatelessWidget {
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.30),
                     fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.0)),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8)),
           ),
           Container(
             height: 140,
@@ -2128,7 +2128,7 @@ class _WorkPreviewCard extends StatelessWidget {
                         ? AppColors.textPrimary
                         : Colors.white.withValues(alpha: 0.28),
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     fontStyle:
                         title.isEmpty ? FontStyle.italic : FontStyle.normal,
                   ),
@@ -2149,7 +2149,7 @@ class _WorkPreviewCard extends StatelessWidget {
                           style: const TextStyle(
                               color: AppColors.primary,
                               fontSize: 10,
-                              fontWeight: FontWeight.w800)),
+                              fontWeight: FontWeight.w700)),
                     ),
                     const Spacer(),
                     if (authorName.isNotEmpty)
@@ -2206,14 +2206,14 @@ class _SectionTitle extends StatelessWidget {
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.35),
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2)),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.8)),
           SizedBox(height: compact ? 6 : 10),
           Text(title,
               style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: compact ? 20 : 26,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.6)),
           const SizedBox(height: 5),
           Text(subtitle,
@@ -2266,7 +2266,7 @@ class _ToggleTile extends StatelessWidget {
                     style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 14,
-                        fontWeight: FontWeight.w900)),
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 3),
                 Text(subtitle,
                     style: TextStyle(
@@ -2306,7 +2306,7 @@ class _ChipGroup extends StatelessWidget {
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.38),
                 fontSize: 11,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.9)),
         const SizedBox(height: 12),
         Wrap(
@@ -2338,7 +2338,7 @@ class _ChipGroup extends StatelessWidget {
                         ? AppColors.primary
                         : Colors.white.withValues(alpha: 0.58),
                     fontSize: 12,
-                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),
@@ -2373,7 +2373,7 @@ class _RadioGroup extends StatelessWidget {
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.38),
                 fontSize: 11,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.9)),
         const SizedBox(height: 12),
         Wrap(

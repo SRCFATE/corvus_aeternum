@@ -261,19 +261,13 @@ class _CollectionsPageState extends State<CollectionsPage>
                   style: TextStyle(
                     color: AppColors.primary.withValues(alpha: 0.70),
                     fontSize: 11,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 1.8,
                   ),
                 ),
                 const SizedBox(height: 7),
-                const Text(
-                  'Biblioteca y curaduría',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+                const Text('Biblioteca y curaduría',
+                    style: CorvusType.headline),
                 const SizedBox(height: 5),
                 Text(
                   'Obras reunidas por afinidad, memoria y contexto.',
@@ -541,7 +535,7 @@ class _CollectionCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         height: 1.15,
                       ),
                     ),
@@ -604,7 +598,7 @@ class _CollectionBadge extends StatelessWidget {
         style: const TextStyle(
           color: AppColors.primaryLight,
           fontSize: 8,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
         ),
       ),

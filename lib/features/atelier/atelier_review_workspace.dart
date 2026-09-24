@@ -7,6 +7,7 @@ import '../../models/atelier_models.dart';
 import '../../providers/atelier_provider.dart';
 import '../../services/spanish_language_service.dart';
 import '../../shared/widgets/corvus_markdown_preview.dart';
+import '../../core/theme/corvus_design.dart';
 
 class AtelierReviewWorkspace extends StatefulWidget {
   final Color accent;
@@ -286,14 +287,10 @@ class _ReviewHeader extends StatelessWidget {
                   style: TextStyle(
                       color: AppColors.warning,
                       fontSize: 11,
-                      fontWeight: FontWeight.w900)),
+                      fontWeight: FontWeight.w700)),
               SizedBox(height: 7),
-              Text('Correccion y precision del manuscrito',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      height: 1.15)),
+              Text('Corrección y precisión del manuscrito',
+                  style: CorvusType.headline),
               SizedBox(height: 5),
               Text(
                   'Ortografia, repeticiones, tipografia, sinonimos y continuidad en un solo espacio.',
@@ -342,7 +339,7 @@ class _ReviewMetric extends StatelessWidget {
               style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 17,
-                  fontWeight: FontWeight.w900)),
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 3),
           Text(label,
               maxLines: 1,
@@ -419,7 +416,7 @@ class _ReviewEditor extends StatelessWidget {
                   style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w800)),
+                      fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 8),
@@ -561,7 +558,7 @@ class _ThesaurusEntryTile extends StatelessWidget {
                       style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 17,
-                          fontWeight: FontWeight.w900))),
+                          fontWeight: FontWeight.w700))),
               Text(entry.register,
                   style: const TextStyle(
                       color: AppColors.textMuted,
@@ -621,7 +618,7 @@ class _StructuralIssue extends StatelessWidget {
                     style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 13,
-                        fontWeight: FontWeight.w800)),
+                        fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(issue.detail,
                     style: const TextStyle(
@@ -666,7 +663,7 @@ class _ReviewSection extends StatelessWidget {
                       style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 14,
-                          fontWeight: FontWeight.w900))),
+                          fontWeight: FontWeight.w700))),
             ],
           ),
           const SizedBox(height: 14),

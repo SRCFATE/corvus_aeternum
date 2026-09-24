@@ -11,6 +11,7 @@ import '../../services/collection_service.dart';
 import '../../services/work_service.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_markdown_preview.dart';
+import '../../core/theme/corvus_design.dart';
 
 class UniverseEditorPage extends StatefulWidget {
   final String profileId;
@@ -574,11 +575,7 @@ class _UniverseEditorPageState extends State<UniverseEditorPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Archivo transmedia',
-                  style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900)),
+              const Text('Archivo transmedia', style: CorvusType.headline),
               const SizedBox(height: 5),
               const Text(
                   'Reune las obras, relatos, colecciones y medios que comparten esta continuidad.',
@@ -723,7 +720,7 @@ class _UniverseFormSection extends StatelessWidget {
             const SizedBox(width: 8),
             Text(title,
                 style: const TextStyle(
-                    color: AppColors.textPrimary, fontWeight: FontWeight.w900))
+                    color: AppColors.textPrimary, fontWeight: FontWeight.w700))
           ]),
           const SizedBox(height: 16),
           child,
@@ -770,7 +767,7 @@ class _LinkedSection<T> extends StatelessWidget {
                       style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 18,
-                          fontWeight: FontWeight.w900))),
+                          fontWeight: FontWeight.w700))),
               OutlinedButton.icon(
                   onPressed: onAdd,
                   icon: const Icon(Icons.add_link_rounded, size: 18),
@@ -947,7 +944,7 @@ class _LinkedTileShell extends StatelessWidget {
                 style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
-                    fontWeight: FontWeight.w900)),
+                    fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text(subtitle,
                 maxLines: 2,

@@ -233,7 +233,7 @@ class _EmblemsHeader extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   Container(
@@ -248,7 +248,7 @@ class _EmblemsHeader extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -327,7 +327,7 @@ class _ProfileEmblemBadge extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       height: 1.1,
                     ),
                   ),

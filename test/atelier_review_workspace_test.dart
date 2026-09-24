@@ -26,7 +26,7 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Correccion y precision del manuscrito'), findsOneWidget);
+    expect(find.text('Corrección y precisión del manuscrito'), findsOneWidget);
     expect(find.text('Diccionario de sinonimos'), findsOneWidget);
     expect(find.textContaining('Falta una tilde'), findsWidgets);
     expect(find.text('alegre'), findsOneWidget);

@@ -9,6 +9,7 @@ import '../../shared/layout/corvus_page.dart';
 import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import '../../shared/widgets/user_avatar.dart';
+import '../../core/theme/corvus_design.dart';
 
 enum _ForumFilter { explore, mine, managed, invitations }
 
@@ -227,19 +228,12 @@ class _ForumsHeader extends StatelessWidget {
               style: TextStyle(
                 color: AppColors.primaryLight,
                 fontSize: 11,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 7),
-            const Text(
-              'Foros privados de autores',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 27,
-                fontWeight: FontWeight.w900,
-                height: 1.1,
-              ),
-            ),
+            const Text('Foros privados de autores',
+                style: CorvusType.headline),
             const SizedBox(height: 6),
             Text(
               'Conversaciones cercanas entre creadores, lectores y comunidades de fans.',
@@ -344,7 +338,7 @@ class _ForumStat extends StatelessWidget {
           value,
           style: const TextStyle(
             color: AppColors.textPrimary,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(width: 5),
@@ -511,7 +505,7 @@ class ForumCard extends StatelessWidget {
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 16,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -665,7 +659,7 @@ class _MembershipChip extends StatelessWidget {
         style: TextStyle(
           color: color,
           fontSize: 10.5,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -706,7 +700,7 @@ class _ForumEmpty extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),

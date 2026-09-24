@@ -745,7 +745,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
             style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w800)),
+                fontWeight: FontWeight.w700)),
         content: Text(
           _node == null
               ? 'Se descartará este elemento sin guardar.'
@@ -767,7 +767,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Eliminar',
                 style: TextStyle(
-                    color: Colors.redAccent, fontWeight: FontWeight.w800)),
+                    color: Colors.redAccent, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -928,7 +928,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 17,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
           content: Text(
@@ -949,7 +949,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
                 'Salir',
                 style: TextStyle(
                   color: AppColors.primary,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -971,7 +971,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
             style: TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w800)),
+                fontWeight: FontWeight.w700)),
         content: Text(
           'Tienes cambios sin guardar.',
           style: TextStyle(
@@ -996,7 +996,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
             onPressed: () => Navigator.of(ctx).pop('save'),
             child: const Text('Guardar y salir',
                 style: TextStyle(
-                    color: AppColors.primary, fontWeight: FontWeight.w800)),
+                    color: AppColors.primary, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -1452,7 +1452,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
                       style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 18,
-                          fontWeight: FontWeight.w900)),
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 20),
                   _EditorDropdown(
                     label: 'Tipo',
@@ -1512,7 +1512,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
                               borderRadius: BorderRadius.circular(12)),
                         ),
                         child: const Text('Aplicar',
-                            style: TextStyle(fontWeight: FontWeight.w800)),
+                            style: TextStyle(fontWeight: FontWeight.w700)),
                       ),
                     ],
                   ),
@@ -1682,7 +1682,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -1894,7 +1894,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: compact ? 28 : 36,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.08,
             ),
             decoration: InputDecoration(
@@ -1903,7 +1903,7 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
               hintStyle: TextStyle(
                 color: Colors.white.withValues(alpha: 0.18),
                 fontSize: compact ? 26 : 34,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
               ),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -2149,8 +2149,8 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
                     style: TextStyle(
                       color: AppColors.primaryLight,
                       fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.8,
                     ),
                   ),
                 ],
@@ -2273,20 +2273,20 @@ class _AtelierElementEditorState extends State<AtelierElementEditor>
         style: bodyStyle.copyWith(
           fontSize: compact ? 27 : 31,
           height: 1.28,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
         ),
       ),
       h2: defaults.h2?.copyWith(
         style: bodyStyle.copyWith(
           fontSize: compact ? 22 : 25,
           height: 1.35,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
         ),
       ),
       h3: defaults.h3?.copyWith(
           style: bodyStyle.copyWith(
               fontSize: _fontSize + 3, fontWeight: FontWeight.w700)),
-      bold: bodyStyle.copyWith(fontWeight: FontWeight.w900),
+      bold: bodyStyle.copyWith(fontWeight: FontWeight.w700),
       italic: bodyStyle.copyWith(fontStyle: FontStyle.italic),
       underline: bodyStyle.copyWith(decoration: TextDecoration.underline),
       strikeThrough: bodyStyle.copyWith(decoration: TextDecoration.lineThrough),
@@ -2839,7 +2839,7 @@ class _EditorSidebarSection extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           subtitle: Text(
@@ -2891,7 +2891,7 @@ class _EditorMetric extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 12,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: 4),
@@ -2939,8 +2939,8 @@ class _DocumentChip extends StatelessWidget {
             style: TextStyle(
               color: color.withValues(alpha: 0.88),
               fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.0,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
             ),
           ),
         ],
@@ -3016,7 +3016,7 @@ class _InspectorRow extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.36),
                 fontSize: 11,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -3026,7 +3026,7 @@ class _InspectorRow extends StatelessWidget {
               style: TextStyle(
                 color: valueColor.withValues(alpha: 0.90),
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 height: 1.3,
               ),
             ),
@@ -3060,7 +3060,7 @@ class _StatCapsule extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 2),
@@ -3097,7 +3097,7 @@ class _TagPill extends StatelessWidget {
         style: TextStyle(
           color: AppColors.primaryLight.withValues(alpha: 0.82),
           fontSize: 11,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -3140,7 +3140,7 @@ class _PanelButton extends StatelessWidget {
                 style: const TextStyle(
                   color: AppColors.primary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -3234,7 +3234,7 @@ class _StatusOption extends StatelessWidget {
                       ? AppColors.primaryLight
                       : Colors.white.withValues(alpha: 0.58),
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],

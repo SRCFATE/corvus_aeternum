@@ -14,6 +14,7 @@ import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_empty_state.dart';
 import '../../shared/widgets/corvus_markdown_preview.dart';
 import '../../shared/widgets/work_card.dart';
+import '../../core/theme/corvus_design.dart';
 
 class CollectionDetailPage extends StatefulWidget {
   final String collectionId;
@@ -566,12 +567,7 @@ class _CollectionDetailPageState extends State<CollectionDetailPage> {
           const SizedBox(height: 12),
           Text(
             collection.title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-            ),
+            style: CorvusType.headline.copyWith(fontSize: 30),
           ),
           const SizedBox(height: 8),
           Text(
@@ -789,7 +785,7 @@ class _HeaderChip extends StatelessWidget {
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 9,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
             ),
           ),
@@ -967,7 +963,7 @@ class _AddWorksSheetState extends State<_AddWorksSheet> {
                         style: TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 18,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -1118,7 +1114,7 @@ class _AddWorksSheetState extends State<_AddWorksSheet> {
             work.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w800),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
             '${work.discipline.isEmpty ? 'Obra' : work.discipline} · $author',

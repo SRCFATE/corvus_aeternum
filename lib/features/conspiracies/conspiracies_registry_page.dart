@@ -11,6 +11,7 @@ import '../../shared/widgets/corvus_crow_animations.dart';
 import '../../shared/widgets/corvus_motion.dart';
 import '../../shared/widgets/conspiracy_emblem.dart';
 import 'conspiracy_rituals.dart';
+import '../../core/theme/corvus_design.dart';
 
 /// Registro de las Casas — explorar el Libro de las Conspiraciones,
 /// elegir primaria manualmente, gestionar secundarias y realizar La Muda.
@@ -209,7 +210,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
               style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 17,
-                  fontWeight: FontWeight.w800)),
+                  fontWeight: FontWeight.w700)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +272,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
               onPressed: () => Navigator.of(ctx).pop(true),
               child: const Text('Realizar La Muda',
                   style: TextStyle(
-                      color: AppColors.primary, fontWeight: FontWeight.w800)),
+                      color: AppColors.primary, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -307,7 +308,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
             style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
-                fontWeight: FontWeight.w800)),
+                fontWeight: FontWeight.w700)),
         content: Text(body,
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.60),
@@ -322,7 +323,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(confirmLabel,
-                style: TextStyle(color: accent, fontWeight: FontWeight.w800)),
+                style: TextStyle(color: accent, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -605,7 +606,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
                                   style: TextStyle(
                                     color: house.accentColor,
                                     fontSize: 9.5,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 5),
@@ -614,7 +615,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
                                   style: const TextStyle(
                                     color: AppColors.textPrimary,
                                     fontSize: 21,
-                                    fontWeight: FontWeight.w900,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
@@ -771,20 +772,12 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
                 style: TextStyle(
                   color: AppColors.primary.withValues(alpha: 0.70),
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 1.8,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Registro de las Casas',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.8,
-                ),
-              ),
+              const Text('Registro de las Casas', style: CorvusType.display),
               const SizedBox(height: 4),
               Text(
                 'Veintidós casas canalizan la Presencia. Las libres se eligen; las demás se conquistan o se otorgan.',
@@ -938,7 +931,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.38),
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: 1.6)),
       if (count != null) ...[
         const SizedBox(width: 8),
@@ -952,7 +945,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.40),
                   fontSize: 10,
-                  fontWeight: FontWeight.w800)),
+                  fontWeight: FontWeight.w700)),
         ),
       ],
       const SizedBox(width: 12),
@@ -1020,8 +1013,8 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
                           style: TextStyle(
                               color: house.accentColor.withValues(alpha: 0.75),
                               fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.4),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.8),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -1029,7 +1022,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
                           style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 21,
-                              fontWeight: FontWeight.w900,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: -0.4),
                         ),
                       ],
@@ -1136,7 +1129,7 @@ class _ConspiraciesRegistryPageState extends State<ConspiraciesRegistryPage> {
               ),
               child: Text(label,
                   style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w800)),
+                      fontSize: 14, fontWeight: FontWeight.w700)),
             )
           : OutlinedButton(
               onPressed: () {
@@ -1220,7 +1213,7 @@ class _HeaderMetric extends StatelessWidget {
         children: [
           Text(value,
               style: TextStyle(
-                  color: color, fontSize: 11.5, fontWeight: FontWeight.w900)),
+                  color: color, fontSize: 11.5, fontWeight: FontWeight.w700)),
           const SizedBox(width: 5),
           Text(label,
               style: TextStyle(
@@ -1335,8 +1328,8 @@ class _HouseCardState extends State<_HouseCard> {
                             style: TextStyle(
                                 color: accent.withValues(alpha: 0.65),
                                 fontSize: 9.5,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.0),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.8),
                           ),
                           const SizedBox(width: 8),
                         ],
@@ -1346,7 +1339,7 @@ class _HouseCardState extends State<_HouseCard> {
                             style: const TextStyle(
                                 color: AppColors.textPrimary,
                                 fontSize: 15.5,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: -0.3),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1473,7 +1466,7 @@ class _ConspiracyProgressPanel extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1482,7 +1475,7 @@ class _ConspiracyProgressPanel extends StatelessWidget {
                 style: TextStyle(
                   color: accent,
                   fontSize: 11,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -1571,7 +1564,7 @@ class _FolioMechanic extends StatelessWidget {
           children: [
             TextSpan(
               text: '$label: ',
-              style: TextStyle(color: color, fontWeight: FontWeight.w800),
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
             ),
             TextSpan(
               text: text,
@@ -1635,7 +1628,7 @@ class _MembershipChip extends StatelessWidget {
               style: TextStyle(
                   color: color,
                   fontSize: 12.5,
-                  fontWeight: emphasized ? FontWeight.w900 : FontWeight.w700)),
+                  fontWeight: emphasized ? FontWeight.w700 : FontWeight.w700)),
           Text(sublabel,
               style: TextStyle(
                   color: color.withValues(alpha: 0.60),
@@ -1667,7 +1660,7 @@ class _MechanicRow extends StatelessWidget {
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.30),
                     fontSize: 10,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0.8)),
           ),
           Expanded(

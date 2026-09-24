@@ -26,6 +26,7 @@ import '../../shared/widgets/user_avatar.dart';
 import 'upload_wizard_sheet.dart';
 import 'work_reading_utils.dart';
 import '../ranking/editorial_selection_dialog.dart';
+import '../../core/theme/corvus_design.dart';
 
 // ─── Cover height per discipline ──────────────────────────────────────────────
 
@@ -343,7 +344,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -539,7 +540,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 13,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
@@ -708,8 +709,10 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                   initial,
                   style: TextStyle(
                     color: AppColors.textPrimary.withValues(alpha: 0.78),
-                    fontSize: 58,
-                    fontWeight: FontWeight.w900,
+                    fontFamily: CorvusType.serif,
+                    fontSize: 62,
+                    fontWeight: FontWeight.w600,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
               ),
@@ -907,12 +910,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
               const SizedBox(height: 18),
               Text(
                 work.title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 38,
-                  fontWeight: FontWeight.w900,
-                  height: 1.02,
-                ),
+                style: CorvusType.displayLarge.copyWith(fontSize: 40),
               ),
               if (work.subdiscipline.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -1090,8 +1088,10 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
               initial,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 56,
-                fontWeight: FontWeight.w900,
+                fontFamily: CorvusType.serif,
+                fontSize: 60,
+                fontWeight: FontWeight.w600,
+                fontStyle: FontStyle.italic,
               ),
             ),
           ),
@@ -1173,7 +1173,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                   style: TextStyle(
                     color: amber,
                     fontSize: 10,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                   ),
                 ),
@@ -1244,7 +1244,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       style: TextStyle(
                         color: AppColors.primary.withValues(alpha: 0.72),
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 1.6,
                       ),
                     ),
@@ -1291,7 +1291,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -1436,7 +1436,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       style: TextStyle(
                         color: AppColors.primary.withValues(alpha: 0.72),
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 1.6,
                       ),
                     ),
@@ -1489,7 +1489,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -1534,7 +1534,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.30),
               fontSize: 9,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.8,
               height: 1.55,
             ),
@@ -1664,7 +1664,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -1815,8 +1815,8 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.8,
                   ),
                 ),
               ),
@@ -1882,7 +1882,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.36),
               fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -1974,8 +1974,8 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.34),
               fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.4,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
             ),
           ),
           const SizedBox(height: 14),
@@ -1998,7 +1998,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     if (work.authorUsername != null)
@@ -2060,7 +2060,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.72),
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -2176,8 +2176,8 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                     style: TextStyle(
                       color: AppColors.gold,
                       fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.0,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.8,
                     ),
                   ),
                 ),
@@ -2243,7 +2243,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                       style: const TextStyle(
                         color: AppColors.gold,
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
                       ),
                     ),
@@ -2294,8 +2294,8 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
             style: TextStyle(
                 color: AppColors.primary.withValues(alpha: 0.65),
                 fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.4),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.8),
           ),
           const SizedBox(height: 10),
           Text(
@@ -2303,7 +2303,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
             style: const TextStyle(
                 color: AppColors.primary,
                 fontSize: 22,
-                fontWeight: FontWeight.w900),
+                fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
           Text(
@@ -2360,7 +2360,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
@@ -2372,7 +2372,7 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                               style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w800),
+                                  fontWeight: FontWeight.w700),
                             ),
                 ),
               ),
@@ -2444,8 +2444,8 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
                                     color: AppColors.primary
                                         .withValues(alpha: 0.55),
                                     fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.2),
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1.8),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -2483,8 +2483,10 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
           w.discipline.isNotEmpty ? w.discipline[0].toUpperCase() : '?',
           style: TextStyle(
               color: Colors.white.withValues(alpha: 0.15),
-              fontSize: 28,
-              fontWeight: FontWeight.w900),
+              fontFamily: CorvusType.serif,
+              fontSize: 30,
+              fontWeight: FontWeight.w600,
+              fontStyle: FontStyle.italic),
         ),
       ),
     );
@@ -2644,8 +2646,8 @@ class _WorkDetailPageState extends State<WorkDetailPage> {
         style: TextStyle(
             color: Colors.white.withValues(alpha: 0.28),
             fontSize: 10,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.8),
       ),
       const SizedBox(width: 14),
       Expanded(
@@ -2703,7 +2705,7 @@ class _TopBarBrand extends StatelessWidget {
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 15,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -2787,7 +2789,7 @@ class _TopBarNavLinkState extends State<_TopBarNavLink> {
             style: TextStyle(
               color: active ? AppColors.textPrimary : AppColors.textMuted,
               fontSize: 13,
-              fontWeight: active ? FontWeight.w800 : FontWeight.w700,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w700,
             ),
           ),
         ),
@@ -2897,7 +2899,7 @@ class _TopBarPrimaryButtonState extends State<_TopBarPrimaryButton> {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -2936,8 +2938,8 @@ class _MetaChip extends StatelessWidget {
             style: TextStyle(
               color: color.withValues(alpha: 0.88),
               fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.1,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.8,
             ),
           ),
         ],
@@ -2997,7 +2999,7 @@ class _MetricTile extends StatelessWidget {
                     style: TextStyle(
                       color: color.withValues(alpha: active ? 0.90 : 0.74),
                       fontSize: 13,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       height: 1.0,
                     ),
                   ),
@@ -3065,7 +3067,7 @@ class _PrimaryActionButton extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: compact ? 12 : 13,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -3174,7 +3176,7 @@ class _MiniStat extends StatelessWidget {
           style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 13,
-              fontWeight: FontWeight.w800),
+              fontWeight: FontWeight.w700),
         ),
         TextSpan(
           text: ' $label',
@@ -3238,7 +3240,7 @@ class _ChapterCard extends StatelessWidget {
                     style: const TextStyle(
                       color: AppColors.primary,
                       fontSize: 13,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -3272,7 +3274,7 @@ class _ChapterCard extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     if (preview.isNotEmpty) ...[

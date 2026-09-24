@@ -216,7 +216,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                       style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 17,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -374,7 +374,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w800,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                     const SizedBox(height: 3),

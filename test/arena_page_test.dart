@@ -22,7 +22,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Desafios y duelos de arte'), findsOneWidget);
+    expect(find.text('Desafíos y duelos de arte'), findsOneWidget);
     expect(find.text('La memoria del fuego'), findsOneWidget);
     expect(find.text('Duelo monocromo'), findsOneWidget);
     expect(tester.takeException(), isNull);
